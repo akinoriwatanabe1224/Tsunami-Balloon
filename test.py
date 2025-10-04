@@ -15,7 +15,7 @@ def set_duty(duty: float):
 
 try:
     while True:
-        for d in [i/20 for i0 in range(21)]:
+        for d in [i/20 for i in range(21)]:
             set_duty(d*10)
             print(d)
             time.sleep(0.2)
