@@ -1,6 +1,6 @@
 import time
 import serial
-from pyvesc.VESC.messages import SetDutyCycle
+from pyvesc.setters import SetDutyCycle
 from pyvesc import encode
 
 # UART設定
@@ -15,10 +15,12 @@ def set_duty(duty):
 
 try:
     while True:
+        # 徐々に上げる
         for d in [i/20 for i in range(21)]:
             set_duty(d)
             print(f"Duty: {d:.2f}")
             time.sleep(0.2)
+        # 徐々に下げる
         for d in [i/20 for i in range(20, -1, -1)]:
             set_duty(d)
             print(f"Duty: {d:.2f}")
