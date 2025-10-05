@@ -12,7 +12,7 @@ def set_duty(duty: float):
     duty_int = int(duty * 1000)  # 0～1000 に変換
     msg = SetDutyCycle(duty_int)
     ser.write(encode(msg))
-max_duty = 20
+max_duty = 10
 try:
     while True:
         for d in [i/max_duty for i in range(max_duty+1)]:
