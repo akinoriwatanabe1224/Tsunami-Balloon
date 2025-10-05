@@ -18,11 +18,15 @@ try:
         for d in [i/max_duty for i in range(max_duty+1)]:
             set_duty(d*max_duty)
             print(d*max_duty)
-            time.sleep(0.2)
-        for d in [i/max_duty for i in range(max_duty,-1,-1)]:
+            time.sleep(0.05)
+        for d in [i/max_duty for i in range(max_duty,-max_duty-1,-1)]:
             set_duty(d*max_duty)
             print(d*max_duty)
-            time.sleep(0.2)
+            time.sleep(0.05)
+        for d in [i/max_duty for i in range(-max_duty, 1)]:
+            set_duty(d*max_duty)
+            print(d*max_duty)
+            time.sleep(0.05)
 except KeyboardInterrupt:
     set_duty(0)
     ser.close()
