@@ -6,6 +6,26 @@ PORT = "/dev/serial0"
 BAUD = 115200
 COMM_GET_VALUES = 4  # VESC GET_VALUES コマンド
 
+# =====================
+# CRC16 テーブル作成
+# =====================
+CRC16_TABLE = []
+def _make_crc16_table():
+    poly = 0x1021
+    table = []
+    for i in range(256):
+        crc = 0
+        c = i << 8
+        for _ in range(8):
+            if (crc ^ c) & 0x8000:
+                crc = ((crc << 1) ^ poly) & 0xFFFF
+            else:
+                crc = (crc << 1) & 0xFFFF
+            c = (c << 1) & 0xFFFF
+        table.append(crc)
+    return table
+
+CRC16_TABLE = _make_crc16_table()
 # CRC16 計算関数
 def crc16(data: bytes) -> int:
     crc = 0
