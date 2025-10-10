@@ -1,6 +1,6 @@
 import time
 import serial
-from pyvesc.interface import encode, read
+from pyvesc.interface import encode, decode
 from pyvesc.messages import GetValues
 
 # =============================
@@ -18,9 +18,16 @@ ser = serial.Serial(PORT, BAUDRATE, timeout=0.1)
 # VESCから値を取得する関数
 # =============================
 def get_vesc_values():
-    ser.write(encode(GetValues()))  # 値取得コマンド送信
-    msg = read(ser)                 # VESCからの応答を読み込む
-    return msg
+    # 値取得コマンド送信
+    ser.write(encode(GetValues()))
+    time.sleep(0.05)  # VESCが応答するまで少し待つ
+
+    # シリアル受信バッファを読み取り
+    if ser.in_waiting:
+        data = ser.read(ser.in_waiting)
+        msg = decode(data)
+        return msg
+    return None
 
 # =============================
 # メインループ
