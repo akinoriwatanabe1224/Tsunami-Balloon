@@ -1,6 +1,6 @@
 import sys
-sys.path.append('/home/pi/Tsunami-Balloon/PyVESC/pyvesc/VESC')
-from VESC import VESC
+sys.path.append('/home/pi/Tsunami-Balloon/PyVESC/pyvesc')  # ← protocol フォルダがここにある
+from VESC.VESC import VESC
 import time
 
 PORT = '/dev/serial0'
