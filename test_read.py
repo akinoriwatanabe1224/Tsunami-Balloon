@@ -23,3 +23,7 @@ def parse_getvalues(buf):
         'duty': duty,
         'rpm': rpm
     }
+data = ser.read(1024)
+if data:
+    parsed = parse_getvalues(data)
+    print(parsed)
