@@ -8,7 +8,7 @@ from pyvesc.VESC import VESC  # 最新版 PyVESC のインターフェース
 # =============================
 # 設定
 # =============================
-PORT = '/dev/ttyUSB0'  # 使用するシリアルポートに合わせて変更
+PORT = '/dev/serial0'  # 使用するシリアルポートに合わせて変更
 BAUDRATE = 115200      # ボーレート
 SAVE_DIR = "CSV"
 USE_ABSOLUTE_TIME = True  # True: 現在時刻, False: 経過時間[s]
