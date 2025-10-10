@@ -1,6 +1,6 @@
 import time
 import serial
-from pyvesc.interface import VESC
+from pyvesc.interface import encode, read
 from pyvesc.messages import GetValues
 
 # =============================
@@ -13,16 +13,23 @@ BAUDRATE = 115200
 # シリアルポート初期化
 # =============================
 ser = serial.Serial(PORT, BAUDRATE, timeout=0.1)
-vesc = VESC(serial_port=ser)  # ここで VESC に Serial オブジェクトを渡す
+
+# =============================
+# VESCから値を取得する関数
+# =============================
+def get_vesc_values():
+    ser.write(encode(GetValues()))  # 値取得コマンド送信
+    msg = read(ser)                 # VESCからの応答を読み込む
+    return msg
 
 # =============================
 # メインループ
 # =============================
 try:
     while True:
-        values_msg = vesc.get_values()  # VESCから値を取得
-        if values_msg is not None:
-            print(f"ERPM: {values_msg.rpm}, Motor Current[A]: {values_msg.avg_motor_current}, Input Voltage[V]: {values_msg.input_voltage}")
+        values = get_vesc_values()
+        if values is not None:
+            print(f"ERPM: {values.rpm}, Motor Current[A]: {values.avg_motor_current}, Input Voltage[V]: {values.input_voltage}")
         else:
             print("No response from VESC")
         time.sleep(0.5)
