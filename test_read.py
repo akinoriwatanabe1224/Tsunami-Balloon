@@ -1,9 +1,9 @@
 import sys
-# pyvesc パッケージのルートを追加（VESCを含む親フォルダ）
-sys.path.append('/home/pi/Tsunami-Balloon/PyVESC')
+sys.path.append('/home/pi/Tsunami-Balloon/PyVESC')  # PyVESCの親フォルダを追加
 
-from pyvesc.VESC.VESC import VESC
+from pyvesc.VESC.VESC import VESC  # これで import 可能
 import time
+
 
 
 PORT = '/dev/serial0'
