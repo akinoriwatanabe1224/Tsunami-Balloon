@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/home/pi/Tsunami-Balloon/PyVESC/pyvesc')  # ← protocol フォルダがここにある
+sys.path.append('/home/pi/Tsunami-Balloon/PyVESC/pyvesc')
 from VESC.VESC import VESC
 import time
 
