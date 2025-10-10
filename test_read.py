@@ -76,7 +76,7 @@ def parse_getvalues(payload):
         return None
 
     # little-endian に変更
-    temp_fet, temp_motor, current_motor, current_in , duty = struct.unpack('>hhiih', payload[:10])
+    temp_fet, temp_motor, current_motor, current_in , duty = struct.unpack('>hhiih', payload[:14])
 
 
     return {
