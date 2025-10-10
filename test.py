@@ -15,7 +15,7 @@ USE_ABSOLUTE_TIME = True         # True: 時刻, False: 経過時間[s]
 # =============================
 # 初期化
 # =============================
-vesc = VESC(serial_port=PORT, serial_baud=BAUDRATE)
+vesc = VESC(port=PORT, baudrate=BAUDRATE=BAUDRATE)
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # CSVファイル名に日付を付ける
