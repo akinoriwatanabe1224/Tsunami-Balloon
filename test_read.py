@@ -1,121 +1,60 @@
-# vesc_read_values.py
-import struct
 import serial
+import struct
 import time
 
-PORT = "/dev/serial0"
-BAUD = 115200
-COMM_GET_VALUES = 4  # VESC GET_VALUES コマンド
+class MyVESC:
+    def __init__(self, port="/dev/serial0", baudrate=115200, timeout=0.1):
+        self.ser = serial.Serial(port, baudrate, timeout=timeout)
 
-# =====================
-# CRC16 計算
-# =====================
-CRC16_TABLE = []
-def _make_crc16_table():
-    poly = 0x1021
-    table = []
-    for i in range(256):
-        crc = 0
-        c = i << 8
-        for _ in range(8):
-            if (crc ^ c) & 0x8000:
-                crc = ((crc << 1) ^ poly) & 0xFFFF
-            else:
-                crc = (crc << 1) & 0xFFFF
-            c = (c << 1) & 0xFFFF
-        table.append(crc)
-    return table
+    def encode_request_getvalues(self):
+        """GetValues コマンドを VESC に送る"""
+        # COMM_GET_VALUES = 4
+        pkt = bytes([2, 4, 0, 3])  # 0x02 0x04 0x00 0x03 (STX, cmd, len, checksum) 仮
+        # 実際は CRC8 または VESC 仕様に合わせてください
+        return pkt
 
-CRC16_TABLE = _make_crc16_table()
-
-def crc16(data: bytes) -> int:
-    crc = 0
-    for b in data:
-        crc = ((crc << 8) & 0xFFFF) ^ CRC16_TABLE[((crc >> 8) ^ b) & 0xFF]
-    return crc & 0xFFFF
-
-# =====================
-# パケット作成
-# =====================
-def build_packet(payload: bytes) -> bytes:
-    if len(payload) > 255:
-        raise ValueError("Payload too long")
-    header = bytes([0x02, len(payload)])
-    crc = crc16(payload)
-    crc_bytes = bytes([(crc >> 8) & 0xFF, crc & 0xFF])
-    return header + payload + crc_bytes + bytes([0x03])
-
-# =====================
-# パケット抽出
-# =====================
-def extract_packets(buf):
-    packets = []
-    i = 0
-    while i < len(buf) - 4:
-        if buf[i] == 0x02:
-            length = buf[i+1]
-            end_index = i + 2 + length + 2 + 1
-            if end_index <= len(buf) and buf[end_index-1] == 0x03:
-                payload = buf[i+2:i+2+length]
-                crc_received = (buf[i+2+length] << 8) | buf[i+2+length+1]
-                if crc16(payload) == crc_received:
-                    packets.append(payload)
-                i = end_index
-            else:
-                break
-        else:
-            i += 1
-    return packets
-
-# =====================
-# GET_VALUES パース（温度・電流・デューティ）
-# =====================
-def parse_getvalues(payload):
-    """VESC 6.x 想定: temp_fet, temp_motor, current_motor, current_in, duty_now"""
-    if len(payload) < 14:
+    def read_packet(self):
+        """VESC から返ってくるパケットを読み取る"""
+        if self.ser.in_waiting:
+            data = self.ser.read(self.ser.in_waiting)
+            return data
         return None
 
-    # little-endian unpack
-    temp_fet, temp_motor, current_motor, current_in, duty_now = struct.unpack('<hhiiH', payload[:14])
+    def get_values(self):
+        """GetValues を送り、温度・電流・duty_now を返す"""
+        self.ser.write(self.encode_request_getvalues())
+        time.sleep(0.01)  # 少し待つ
+        payload = self.read_packet()
+        if payload is None or len(payload) < 14:
+            return None
 
-    return {
-        'temp_fet': temp_fet / 10,       # °C
-        'temp_motor': temp_motor / 10,   # °C
-        'current_motor': current_motor / 100,  # A
-        'current_in': current_in / 100,        # A
-        'duty_now': duty_now / 1000
-    }
+        # VESC 6 用 unpack
+        # temp_fet, temp_motor: int16_t (0.1°C), current_motor, current_in: int32_t (0.01 A), duty_now: int16_t (0.001)
+        try:
+            temp_fet, temp_motor, current_motor, current_in, duty_now = struct.unpack('<hhiiH', payload[:14])
+            return {
+                "temp_fet": temp_fet / 10.0,         # °C
+                "temp_motor": temp_motor / 10.0,     # °C
+                "current_motor": current_motor / 100.0,  # A
+                "current_in": current_in / 100.0,        # A
+                "duty_now": duty_now / 1000.0          # -1.0 ~ 1.0
+            }
+        except struct.error:
+            return None
 
-# =====================
-# シリアル初期化
-# =====================
-ser = serial.Serial(PORT, BAUD, timeout=0.5)
-buffer = b''
+    def close(self):
+        self.ser.close()
 
-# =====================
-# メインループ
-# =====================
-try:
-    while True:
-        pkt = build_packet(bytes([COMM_GET_VALUES]))
-        ser.write(pkt)
-        time.sleep(0.05)
-
-        data = ser.read(1024)
-        if data:
-            buffer += data
-            packets = extract_packets(buffer)
-            consumed_len = 0
-            for p in packets:
-                parsed = parse_getvalues(p)
-                if parsed:
-                    print(parsed)
-                consumed_len += len(p) + 5
-            buffer = buffer[consumed_len:]
-        else:
-            print("no reply")
-        time.sleep(0.5)
-
-except KeyboardInterrupt:
-    ser.close()
-    print("Stopped.")
+# ----------------------------
+# 実際に読み取る例
+# ----------------------------
+if __name__ == "__main__":
+    vesc = MyVESC(port="/dev/serial0", baudrate=115200)
+    try:
+        while True:
+            values = vesc.get_values()
+            if values:
+                print(values)
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        vesc.close()
