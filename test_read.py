@@ -1,4 +1,3 @@
-# vesc_temp_current.py
 import struct
 import serial
 import time
@@ -7,36 +6,14 @@ PORT = "/dev/serial0"
 BAUD = 115200
 COMM_GET_VALUES = 4  # VESC GET_VALUES コマンド
 
-# =====================
-# CRC16 計算
-# =====================
-CRC16_TABLE = []
-def _make_crc16_table():
-    poly = 0x1021
-    table = []
-    for i in range(256):
-        crc = 0
-        c = i << 8
-        for _ in range(8):
-            if (crc ^ c) & 0x8000:
-                crc = ((crc << 1) ^ poly) & 0xFFFF
-            else:
-                crc = (crc << 1) & 0xFFFF
-            c = (c << 1) & 0xFFFF
-        table.append(crc)
-    return table
-
-CRC16_TABLE = _make_crc16_table()
-
+# CRC16 計算関数
 def crc16(data: bytes) -> int:
     crc = 0
     for b in data:
         crc = ((crc << 8) & 0xFFFF) ^ CRC16_TABLE[((crc >> 8) ^ b) & 0xFF]
     return crc & 0xFFFF
 
-# =====================
-# パケット作成
-# =====================
+# パケット作成関数
 def build_packet(payload: bytes) -> bytes:
     if len(payload) > 255:
         raise ValueError("Payload too long")
@@ -45,9 +22,7 @@ def build_packet(payload: bytes) -> bytes:
     crc_bytes = bytes([(crc >> 8) & 0xFF, crc & 0xFF])
     return header + payload + crc_bytes + bytes([0x03])
 
-# =====================
-# パケット抽出
-# =====================
+# パケット抽出関数
 def extract_packets(buf):
     packets = []
     i = 0
@@ -67,35 +42,23 @@ def extract_packets(buf):
             i += 1
     return packets
 
-# =====================
-# GET_VALUES パース（温度と電流のみ）
-# =====================
+# GET_VALUES パース関数（温度と電流のみ）
 def parse_getvalues(payload):
-    """Vedder VESC 6.xx 想定（温度・電流のみ）"""
-    if len(payload) < 12:  # temp_fet(2)+temp_motor(2)+current_motor(4)+current_in(4)
+    if len(payload) < 12:
         return None
-
-    # little-endian に変更
-    temp_fet, temp_motor, current_motor, current_in , duty = struct.unpack('>hhiih', payload[:14])
-
-
+    temp_fet, temp_motor, current_motor, current_in = struct.unpack('>hhiih', payload[:14])
     return {
-        'temp_fet': temp_fet / 10,       # °C
-        'temp_motor': temp_motor / 10,   # °C
-        'current_motor': current_motor / 100,  # A
-        'current_in': current_in / 100,        # A
-         'duty': duty / (1000*17.9)
+        'temp_fet': temp_fet / 10,
+        'temp_motor': temp_motor / 10,
+        'current_motor': current_motor / 100,
+        'current_in': current_in / 100
     }
 
-# =====================
 # シリアル初期化
-# =====================
 ser = serial.Serial(PORT, BAUD, timeout=0.5)
 buffer = b''
 
-# =====================
 # メインループ
-# =====================
 try:
     while True:
         pkt = build_packet(bytes([COMM_GET_VALUES]))
