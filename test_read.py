@@ -1,7 +1,10 @@
 import sys
-sys.path.append('/home/pi/Tsunami-Balloon/PyVESC/pyvesc')
-from VESC.VESC import VESC
+# pyvesc パッケージのルートを追加（VESCを含む親フォルダ）
+sys.path.append('/home/pi/Tsunami-Balloon/PyVESC')
+
+from pyvesc.VESC.VESC import VESC
 import time
+
 
 PORT = '/dev/serial0'
 BAUDRATE = 115200
