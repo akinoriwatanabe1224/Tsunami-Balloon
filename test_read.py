@@ -1,50 +1,28 @@
 import time
-import serial
-from pyvesc.messages.getters import GetValues
-from pyvesc.interface import encode, decode
+from pyvesc.VESC import VESC
 
 # =============================
 # 設定
 # =============================
-PORT = "/dev/serial0"  # UART接続
+PORT = "/dev/serial0"
 BAUDRATE = 115200
-TIMEOUT = 0.1
 
 # =============================
-# シリアルポート初期化
+# VESC初期化
 # =============================
-ser = serial.Serial(PORT, BAUDRATE, timeout=TIMEOUT)
-
-# =============================
-# VESCの値を取得する関数
-# =============================
-def read_vesc():
-    # VESCにGetValuesコマンド送信
-    ser.write(encode(GetValues()))
-    
-    # 応答が返るまで待機
-    start_time = time.time()
-    while True:
-        if ser.in_waiting:
-            data = ser.read(ser.in_waiting)
-            msg = decode(data)
-            if msg:
-                return msg
-        if time.time() - start_time > 0.5:  # タイムアウト0.5秒
-            return None
+vesc = VESC(port=PORT, baudrate=BAUDRATE, timeout=0.1)
 
 # =============================
 # メインループ
 # =============================
 try:
     while True:
-        values = read_vesc()
+        values = vesc.get_values()  # ここで辞書形式で取得
         if values:
-            print(f"ERPM: {values.rpm}, Motor Current[A]: {values.avg_motor_current}, Input Voltage[V]: {values.input_voltage}")
+            print(f"ERPM: {values['rpm']}, Motor Current[A]: {values['avg_motor_current']}, Input Voltage[V]: {values['input_voltage']}")
         else:
             print("No response from VESC")
         time.sleep(0.5)
 
 except KeyboardInterrupt:
-    ser.close()
-    print("Program stopped, serial port closed.")
+    print("Program stopped.")
