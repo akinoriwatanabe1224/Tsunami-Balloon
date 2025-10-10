@@ -1,7 +1,7 @@
 import time
 import serial
-from pyvesc.messages.getters import GetValues
 from pyvesc.interface import encode, decode
+from pyvesc.messages import GetValues
 
 PORT = "/dev/serial0"
 BAUDRATE = 115200
@@ -10,14 +10,14 @@ ser = serial.Serial(PORT, BAUDRATE, timeout=0.1)
 
 try:
     while True:
-        # 値リクエストを送信（クラスを渡す点に注意！）
-        ser.write(encode(GetValues))
+        # GetValues() のインスタンスを渡すのが正解
+        ser.write(encode(GetValues()))
 
-        # 受信バッファからデコード
-        data = ser.read(256)  # 256バイトぐらい読む
+        # 受信データを読む
+        data = ser.read(256)
         if data:
             for msg in decode(data):
-                print(msg)  # VESCから返ってきたステータスオブジェクト
+                print(msg)
 
         time.sleep(0.5)
 
