@@ -84,7 +84,7 @@ def parse_getvalues(payload):
         'temp_motor': temp_motor / 10,   # °C
         'current_motor': current_motor / 100,  # A
         'current_in': current_in / 100,        # A
-         'duty': duty / 1000
+         'duty': duty / (1000*17.9)
     }
 
 # =====================
