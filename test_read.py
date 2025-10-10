@@ -1,18 +1,15 @@
-# read_vesc.py
+# read_vesc_values.py
 import serial
-from pyvesc import VESC
-from pyvesc.VESC import GetValues
+from pyvesc import get_values
 
-# シリアルポート
 PORT = "/dev/serial0"
 BAUD = 115200
 
 ser = serial.Serial(PORT, BAUD, timeout=0.5)
-vesc = VESC(serial_port=ser)
 
 try:
     while True:
-        values = vesc.getValues()
+        values = get_values(ser)  # VESCから生データを取得してパース
         print({
             'temp_fet': values.temp_fet,       # °C
             'temp_motor': values.temp_motor,   # °C
