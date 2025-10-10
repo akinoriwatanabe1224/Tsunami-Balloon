@@ -66,12 +66,13 @@ def extract_packets(buf):
 def parse_getvalues(payload):
     if len(payload) < 12:
         return None
-    temp_fet, temp_motor, current_motor, current_in = struct.unpack('>hhiih', payload[:14])
+    temp_fet, temp_motor, current_motor, current_in, duty  = struct.unpack('>hhiih', payload[:14])
     return {
         'temp_fet': temp_fet / 10,
         'temp_motor': temp_motor / 10,
         'current_motor': current_motor / 100,
-        'current_in': current_in / 100
+        'current_in': current_in / 100,
+        'duty': duty / 1000
     }
 
 # シリアル初期化
