@@ -1,0 +1,4 @@
+cd ~/vesc_env
+source bin/activate
+
+deactivate

@@ -1,32 +1,117 @@
 import time
+import csv
+import os
 import serial
+from datetime import datetime
 from pyvesc.messages.setters import SetDutyCycle
-from pyvesc.interface import encode
+from pyvesc.messages.getters import GetValues
+from pyvesc.interface import encode, decode
 
+# =============================
+# 設定
+# =============================
 PORT = "/dev/serial0"
 BAUDRATE = 115200
-ser = serial.Serial(PORT, BAUDRATE, timeout=0.1)
+SAVE_DIR = "CSV"  # ← CSV保存先ディレクトリ（必要に応じて変更）
+USE_ABSOLUTE_TIME = True         # True：時刻, False：経過時間（秒）
 
+# =============================
+# 初期化
+# =============================
+ser = serial.Serial(PORT, BAUDRATE, timeout=0.1)
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+# CSVファイル名に日付を付ける
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+csv_filename = os.path.join(SAVE_DIR, f"vesc_data_{timestamp}.csv")
+
+# =============================
+# 関数定義
+# =============================
+
+# Duty送信関数（変更しない）
 def set_duty(duty: float):
     duty = max(-100.0, min(100.0, duty))
-    duty_int = int(duty * 1000)  # 0～1000 に変換
+    duty_int = int(duty * 1000)
     msg = SetDutyCycle(duty_int)
     ser.write(encode(msg))
+
+# VESCから値を取得
+def get_values():
+    ser.write(encode(GetValues()))
+    time.sleep(0.02)
+    if ser.in_waiting > 0:
+        response = ser.read(ser.in_waiting)
+        try:
+            msg, consumed = decode(response)
+            if isinstance(msg, GetValues):
+                return {
+                    "erpm": msg.rpm,
+                    "current_motor": msg.avg_motor_current,
+                    "v_in": msg.input_voltage
+                }
+        except Exception:
+            pass
+    return None
+
+# =============================
+# CSV初期化
+# =============================
+with open(csv_filename, mode='w', newline='') as f:
+    writer = csv.writer(f)
+    if USE_ABSOLUTE_TIME:
+        writer.writerow(["Time", "Duty", "ERPM", "Current[A]", "Voltage[V]"])
+    else:
+        writer.writerow(["ElapsedTime[s]", "Duty", "ERPM", "Current[A]", "Voltage[V]"])
+
+# =============================
+# メインループ
+# =============================
 max_duty = 10
+start_time = time.time()
+
 try:
     while True:
+        # Duty上昇
         for d in [i/max_duty for i in range(max_duty+1)]:
             set_duty(d*max_duty)
-            print(d*max_duty)
+            values = get_values()
+
+            if values:
+                with open(csv_filename, mode='a', newline='') as f:
+                    writer = csv.writer(f)
+                    t = datetime.now().strftime("%H:%M:%S.%f")[:-3] if USE_ABSOLUTE_TIME else round(time.time() - start_time, 2)
+                    writer.writerow([t, d*max_duty, values["erpm"], values["current_motor"], values["v_in"]])
+            print(d*max_duty, values)
             time.sleep(0.05)
-        for d in [i/max_duty for i in range(max_duty,-max_duty-1,-1)]:
+
+        # Duty下降（正→負）
+        for d in [i/max_duty for i in range(max_duty, -max_duty-1, -1)]:
             set_duty(d*max_duty)
-            print(d*max_duty)
+            values = get_values()
+
+            if values:
+                with open(csv_filename, mode='a', newline='') as f:
+                    writer = csv.writer(f)
+                    t = datetime.now().strftime("%H:%M:%S.%f")[:-3] if USE_ABSOLUTE_TIME else round(time.time() - start_time, 2)
+                    writer.writerow([t, d*max_duty, values["erpm"], values["current_motor"], values["v_in"]])
+            print(d*max_duty, values)
             time.sleep(0.05)
+
+        # Duty負→0
         for d in [i/max_duty for i in range(-max_duty, 1)]:
             set_duty(d*max_duty)
-            print(d*max_duty)
+            values = get_values()
+
+            if values:
+                with open(csv_filename, mode='a', newline='') as f:
+                    writer = csv.writer(f)
+                    t = datetime.now().strftime("%H:%M:%S.%f")[:-3] if USE_ABSOLUTE_TIME else round(time.time() - start_time, 2)
+                    writer.writerow([t, d*max_duty, values["erpm"], values["current_motor"], values["v_in"]])
+            print(d*max_duty, values)
             time.sleep(0.05)
+
 except KeyboardInterrupt:
     set_duty(0)
     ser.close()
+    print(f"Logging stopped.\nCSV saved at: {csv_filename}")
