@@ -1,23 +1,6 @@
-# test_duty.py
-import time
-from pyvesc.VESC import VESC
+import serial
 
-PORT = "/dev/serial0"
-BAUDRATE = 115200
-
-with VESC(serial_port=PORT, baudrate=BAUDRATE) as vesc:
-    try:
-        duty = 0.1  # 10% duty cycle
-        vesc.set_duty_cycle(duty)
-        print(f"Set duty cycle: {duty}")
-
-        for _ in range(10):
-            measurements = vesc.get_measurements()
-            if measurements:
-                print(f"ERPM: {measurements.rpm:.1f}, Motor Current: {measurements.current_motor:.2f} A, Voltage: {measurements.v_in:.2f} V")
-            else:
-                print("No measurements received")
-            time.sleep(0.5)
-
-    except KeyboardInterrupt:
-        print("Stopped")
+ser = serial.Serial("/dev/serial0", 115200, timeout=1)
+ser.write(b"\x02\x04\x00\x00\x00\x00")  # テスト送信
+resp = ser.read(10)
+print("Resp:", resp)
