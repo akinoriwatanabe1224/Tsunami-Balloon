@@ -17,6 +17,7 @@ USE_ABSOLUTE_TIME = True  # True: 現在時刻, False: 経過時間[s]
 # シリアルポート初期化
 # =============================
 ser = serial.Serial(PORT, BAUDRATE, timeout=0.1)
+time.sleep(1)
 vesc = VESC(serial_port=PORT, baudrate=BAUDRATE, timeout=0.1)
 
 os.makedirs(SAVE_DIR, exist_ok=True)
