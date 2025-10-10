@@ -68,20 +68,21 @@ def extract_packets(buf):
     return packets
 
 # =====================
-# GET_VALUES パース（温度・電流のみ）
+# GET_VALUES パース（温度と電流のみ）
 # =====================
 def parse_getvalues(payload):
-    if len(payload) < 12:
+    """Vedder VESC 6.xx 想定（温度・電流のみ）"""
+    if len(payload) < 12:  # temp_fet(2)+temp_motor(2)+current_motor(4)+current_in(4)
         return None
 
-    temp_fet, temp_motor = struct.unpack('>hh', payload[0:4])
-    current_motor, current_in = struct.unpack('>ii', payload[4:12])
+    # little-endian に変更
+    temp_fet, temp_motor, current_motor, current_in = struct.unpack('<hhii', payload[:12])
 
     return {
-        'temp_fet': temp_fet / 10,
-        'temp_motor': temp_motor / 10,
-        'current_motor': current_motor / 100,
-        'current_in': current_in / 100
+        'temp_fet': temp_fet / 10,       # °C
+        'temp_motor': temp_motor / 10,   # °C
+        'current_motor': current_motor / 100,  # A
+        'current_in': current_in / 100        # A
     }
 
 # =====================
