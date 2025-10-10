@@ -1,13 +1,14 @@
+# vesc_temp_current.py
 import struct
 import serial
 import time
 
 PORT = "/dev/serial0"
 BAUD = 115200
-COMM_GET_VALUES = 4  # VESC の GET_VALUES コマンド
+COMM_GET_VALUES = 4  # VESC GET_VALUES コマンド
 
 # =====================
-# CRC16 テーブル作成
+# CRC16 計算
 # =====================
 CRC16_TABLE = []
 def _make_crc16_table():
@@ -37,7 +38,6 @@ def crc16(data: bytes) -> int:
 # パケット作成
 # =====================
 def build_packet(payload: bytes) -> bytes:
-    """短パケット作成"""
     if len(payload) > 255:
         raise ValueError("Payload too long")
     header = bytes([0x02, len(payload)])
@@ -46,16 +46,15 @@ def build_packet(payload: bytes) -> bytes:
     return header + payload + crc_bytes + bytes([0x03])
 
 # =====================
-# 受信バッファからパケット抽出
+# パケット抽出
 # =====================
 def extract_packets(buf):
-    """受信バッファから短パケットをすべて抽出"""
     packets = []
     i = 0
-    while i < len(buf)-4:  # 最低限 5 バイト以上
-        if buf[i] == 0x02:  # start byte
+    while i < len(buf) - 4:
+        if buf[i] == 0x02:
             length = buf[i+1]
-            end_index = i + 2 + length + 2 + 1  # payload + crc2 + stop
+            end_index = i + 2 + length + 2 + 1
             if end_index <= len(buf) and buf[end_index-1] == 0x03:
                 payload = buf[i+2:i+2+length]
                 crc_received = (buf[i+2+length] << 8) | buf[i+2+length+1]
@@ -63,34 +62,26 @@ def extract_packets(buf):
                     packets.append(payload)
                 i = end_index
             else:
-                break  # パケット途中の可能性
+                break
         else:
             i += 1
     return packets
 
 # =====================
-# GET_VALUES パース
+# GET_VALUES パース（温度・電流のみ）
 # =====================
 def parse_getvalues(payload):
-    """Vedder VESC 6.xx 想定"""
-    if len(payload) < 18:
+    if len(payload) < 12:
         return None
-    # 型と順序: temp_fet, temp_motor, current_motor, current_in, duty, rpm
-    temp_fet, temp_motor, current_motor, current_in, duty, rpm = struct.unpack('>hhiihi', payload[:18])
-    
-    temp_fet /= 10
-    temp_motor /= 10
-    current_motor /= 100  # mA → A
-    current_in /= 100
-    duty /= 1000
-    
+
+    temp_fet, temp_motor = struct.unpack('>hh', payload[0:4])
+    current_motor, current_in = struct.unpack('>ii', payload[4:12])
+
     return {
-        'temp_fet': temp_fet,
-        'temp_motor': temp_motor,
-        'current_motor': current_motor,
-        'current_in': current_in,
-        'duty': duty,
-        'rpm': rpm
+        'temp_fet': temp_fet / 10,
+        'temp_motor': temp_motor / 10,
+        'current_motor': current_motor / 100,
+        'current_in': current_in / 100
     }
 
 # =====================
@@ -104,12 +95,10 @@ buffer = b''
 # =====================
 try:
     while True:
-        # GET_VALUES コマンド送信
         pkt = build_packet(bytes([COMM_GET_VALUES]))
         ser.write(pkt)
         time.sleep(0.05)
 
-        # 受信
         data = ser.read(1024)
         if data:
             buffer += data
@@ -119,7 +108,7 @@ try:
                 parsed = parse_getvalues(p)
                 if parsed:
                     print(parsed)
-                consumed_len += len(p) + 5  # start + len + payload + crc2 + stop
+                consumed_len += len(p) + 5
             buffer = buffer[consumed_len:]
         else:
             print("no reply")
