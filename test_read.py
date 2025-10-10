@@ -1,42 +1,34 @@
 import time
 import serial
 from pyvesc.interface import encode, decode
-from pyvesc.messages import GetValues
+from pyvesc.messages import VESCMessage
 
-# =============================
-# 設定
-# =============================
 PORT = "/dev/serial0"
 BAUDRATE = 115200
 
-# =============================
-# シリアルポート初期化
-# =============================
 ser = serial.Serial(PORT, BAUDRATE, timeout=0.1)
 
-# =============================
-# VESCから値を取得する関数
-# =============================
+# VESCにGetValuesコマンドを送信してデコード
 def get_vesc_values():
-    # 値取得コマンド送信
-    ser.write(encode(GetValues()))
-    time.sleep(0.05)  # VESCが応答するまで少し待つ
+    # GetValuesのパケットは「0x04」を送信するだけでOK
+    ser.write(b'\x04')  
+    time.sleep(0.05)
 
-    # シリアル受信バッファを読み取り
     if ser.in_waiting:
         data = ser.read(ser.in_waiting)
-        msg = decode(data)
-        return msg
+        try:
+            msg = decode(data)
+            return msg
+        except Exception:
+            return None
     return None
 
-# =============================
-# メインループ
-# =============================
 try:
     while True:
         values = get_vesc_values()
         if values is not None:
-            print(f"ERPM: {values.rpm}, Motor Current[A]: {values.avg_motor_current}, Input Voltage[V]: {values.input_voltage}")
+            # 電流・RPM・電圧を表示
+            print(f"ERPM: {getattr(values, 'rpm', None)}, Motor Current[A]: {getattr(values, 'avg_motor_current', None)}, Input Voltage[V]: {getattr(values, 'input_voltage', None)}")
         else:
             print("No response from VESC")
         time.sleep(0.5)
