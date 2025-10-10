@@ -12,8 +12,8 @@ from pyvesc.interface import encode, decode
 # =============================
 PORT = "/dev/serial0"
 BAUDRATE = 115200
-SAVE_DIR = "CSV"  # ← CSV保存先ディレクトリ（必要に応じて変更）
-USE_ABSOLUTE_TIME = True         # True：時刻, False：経過時間（秒）
+SAVE_DIR = "CSV"  # CSV保存先
+USE_ABSOLUTE_TIME = True         # True: 時刻, False: 経過時間[s]
 
 # =============================
 # 初期化
@@ -26,32 +26,34 @@ timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 csv_filename = os.path.join(SAVE_DIR, f"vesc_data_{timestamp}.csv")
 
 # =============================
-# 関数定義
+# Duty送信関数（変更なし）
 # =============================
-
-# Duty送信関数（変更しない）
 def set_duty(duty: float):
     duty = max(-100.0, min(100.0, duty))
     duty_int = int(duty * 1000)
     msg = SetDutyCycle(duty_int)
     ser.write(encode(msg))
 
-# VESCから値を取得
+# =============================
+# VESCから値を取得（安全版）
+# =============================
 def get_values():
-    ser.write(encode(GetValues()))
-    time.sleep(0.02)
-    if ser.in_waiting > 0:
-        response = ser.read(ser.in_waiting)
-        try:
-            msg, consumed = decode(response)
-            if isinstance(msg, GetValues):
+    try:
+        ser.write(encode(GetValues()))
+        time.sleep(0.02)
+        if ser.in_waiting > 0:
+            response = ser.read(ser.in_waiting)
+            msg, _ = decode(response)
+            # 必要な値のみ取得、存在しない属性は0で補完
+            if hasattr(msg, "rpm"):
                 return {
-                    "erpm": msg.rpm,
-                    "current_motor": msg.avg_motor_current,
-                    "v_in": msg.input_voltage
+                    "erpm": getattr(msg, "rpm", 0),
+                    "current_motor": getattr(msg, "avg_motor_current", 0),
+                    "v_in": getattr(msg, "input_voltage", 0)
                 }
-        except Exception:
-            pass
+    except Exception as e:
+        # temp_mos1 など存在しない属性によるエラーを無視
+        pass
     return None
 
 # =============================
@@ -72,11 +74,10 @@ start_time = time.time()
 
 try:
     while True:
-        # Duty上昇
+        # --- Duty上昇 ---
         for d in [i/max_duty for i in range(max_duty+1)]:
             set_duty(d*max_duty)
             values = get_values()
-
             if values:
                 with open(csv_filename, mode='a', newline='') as f:
                     writer = csv.writer(f)
@@ -85,11 +86,10 @@ try:
             print(d*max_duty, values)
             time.sleep(0.05)
 
-        # Duty下降（正→負）
-        for d in [i/max_duty for i in range(max_duty, -max_duty-1, -1)]:
+        # --- Duty下降 ---
+        for d in [i/max_duty for i in range(max_duty,-max_duty-1,-1)]:
             set_duty(d*max_duty)
             values = get_values()
-
             if values:
                 with open(csv_filename, mode='a', newline='') as f:
                     writer = csv.writer(f)
@@ -98,11 +98,10 @@ try:
             print(d*max_duty, values)
             time.sleep(0.05)
 
-        # Duty負→0
+        # --- Duty負→0 ---
         for d in [i/max_duty for i in range(-max_duty, 1)]:
             set_duty(d*max_duty)
             values = get_values()
-
             if values:
                 with open(csv_filename, mode='a', newline='') as f:
                     writer = csv.writer(f)
