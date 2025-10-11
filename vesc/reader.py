@@ -205,6 +205,7 @@ class VESCReader:
                         parsed = parse_getvalues(payload)
                         if parsed:
                             self.success_count += 1
+                            self._write_csv(parsed)
                             # 表示は元のフォーマットに合わせる
                             print(f"\n--- データ #{self.success_count} ---")
                             print(f"FET温度:    {parsed['temp_fet']:.1f}°C")
