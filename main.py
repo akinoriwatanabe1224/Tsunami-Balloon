@@ -18,7 +18,7 @@ def main():
         print(f"シリアルポートを開けませんでした: {e}")
         sys.exit(1)
 
-    reader = VESCReader(ser, interval=0.5)
+    reader = VESCReader(ser, interval=0.05)
     duty = VESCDutyController(ser, max_duty=10, step_delay=0.05)
 
     try:
