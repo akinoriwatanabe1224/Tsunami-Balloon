@@ -9,11 +9,11 @@ def main():
     reader = VESCReader(
         ser,
         interval=0.05,
-        csv_enable=False,                      # CSV出力(Trueで出力)
-        csv_filename="log/4g.csv",      #  保存場所
-        csv_fields=["time", "duty", "v_in", "current_motor"]
+        csv_enable=True,                      # CSV出力(Trueで出力)
+        csv_filename="log/0g.csv",      #  保存場所
+        csv_fields=["time", "duty", "v_in", "current_motor", "current_in"]
     )
-    duty = VESCDutyController(ser, max_duty=0, step_delay=0.05)
+    duty = VESCDutyController(ser, max_duty=10, step_delay=0.05)
 
     try:
         reader.start()

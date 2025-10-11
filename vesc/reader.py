@@ -152,7 +152,7 @@ class VESCReader:
         # === CSV設定 ===
         self.csv_enable = csv_enable
         self.csv_filename = csv_filename
-        self.csv_fields = csv_fields or ["time", "rpm", "duty", "v_in", "current_motor"]
+        self.csv_fields = csv_fields
         self._csv_file = None
         self._csv_writer = None
         self._start_time = None
