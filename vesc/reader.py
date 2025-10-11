@@ -3,6 +3,8 @@
 import struct
 import time
 import threading
+import csv
+import os
 
 COMM_GET_VALUES = 4
 
@@ -127,12 +129,17 @@ def parse_getvalues(payload):
         print(f"[ERROR] パース失敗: {e}")
         print(f"[HEX] {payload.hex()}")
         return None
-
 class VESCReader:
-    def __init__(self, ser, interval=0.5):
+    def __init__(self, ser, interval=0.5,
+                 csv_enable=False,
+                 csv_filename="vesc_data.csv",
+                 csv_fields=None):
         """
-        ser: serial.Serial オブジェクト（main で開くことを想定）
-        interval: GET_VALUES を送る間隔（秒）
+        ser: serial.Serial オブジェクト
+        interval: サンプリング周期 [s]
+        csv_enable: True のときCSV出力を有効化
+        csv_filename: 出力ファイル名
+        csv_fields: 出力したいキーのリスト（例: ["rpm", "duty", "v_in"]）
         """
         self.ser = ser
         self.interval = interval
@@ -142,12 +149,50 @@ class VESCReader:
         self.request_count = 0
         self.success_count = 0
 
+        # === CSV設定 ===
+        self.csv_enable = csv_enable
+        self.csv_filename = csv_filename
+        self.csv_fields = csv_fields or ["time", "rpm", "duty", "v_in", "current_motor"]
+        self._csv_file = None
+        self._csv_writer = None
+        self._start_time = None
+
+    # ---- CSV初期化 ----
+    def _init_csv(self):
+        if not self.csv_enable:
+            return
+        os.makedirs(os.path.dirname(self.csv_filename) or ".", exist_ok=True)
+        file_exists = os.path.isfile(self.csv_filename)
+        self._csv_file = open(self.csv_filename, mode="a", newline="")
+        self._csv_writer = csv.DictWriter(self._csv_file, fieldnames=self.csv_fields)
+        if not file_exists:
+            self._csv_writer.writeheader()
+        self._start_time = time.time()
+        print(f"[CSV] 出力開始: {self.csv_filename}")
+
+    def _write_csv(self, parsed):
+        if not self.csv_enable or self._csv_writer is None:
+            return
+        elapsed = time.time() - self._start_time
+        row = {}
+        for field in self.csv_fields:
+            if field == "time":
+                row["time"] = round(elapsed, 3)
+            elif field in parsed:
+                row[field] = parsed[field]
+        self._csv_writer.writerow(row)
+        self._csv_file.flush()  # 即時書き込み
+
+    # ---- VESC通信処理 ----
     def send_get_values(self):
+        from vesc.reader import build_packet  # 同ファイルの関数
         pkt = build_packet(bytes([COMM_GET_VALUES]))
         self.ser.write(pkt)
         self.request_count += 1
 
     def _loop(self):
+        from vesc.reader import extract_packets, parse_getvalues
+        self._init_csv()
         while not self._stop_flag.is_set():
             try:
                 self.send_get_values()
@@ -170,15 +215,15 @@ class VESCReader:
                             print(f"Duty比:     {parsed['duty']:.3f}")
                             print(f"RPM:        {parsed['rpm']}")
                             print(f"電力量:     {parsed['watt_hours']:.3f}Wh")
-                else:
-                    print(f"[{self.request_count}] 応答なし")
-                if len(self._buffer) > 1000:
-                    print(f"[WARN] バッファクリア ({len(self._buffer)} bytes)")
-                    self._buffer = b''
+                            print(f"[#{self.success_count}] RPM={parsed['rpm']} Duty={parsed['duty']:.3f}")
                 time.sleep(max(0, self.interval - 0.05))
             except Exception as e:
                 print(f"[ERROR in reader loop] {e}")
                 time.sleep(0.5)
+        # 終了時にCSVを閉じる
+        if self._csv_file:
+            self._csv_file.close()
+            print("[CSV] ファイルを閉じました。")
 
     def start(self):
         if self._thread is None:
