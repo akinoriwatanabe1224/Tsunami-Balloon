@@ -11,8 +11,8 @@ BAUDRATE = 115200
 
 MAX_DUTY = 10
 STEP_DELAY = 0.05
-RUN_TIME_SEC = 5        # モータが回る時間
-COOLDOWN_SEC = 4        # トリガ無視
+RUN_TIME_SEC = 5        # モータ回転時間
+COOLDOWN_SEC = 4        # 再トリガ無視時間
 # =================
 
 busy_lock = threading.Lock()
@@ -20,7 +20,6 @@ busy = False
 
 
 def with_lock(func):
-    """busy中なら無視するデコレータ"""
     def wrapper():
         global busy
         with busy_lock:
@@ -32,7 +31,6 @@ def with_lock(func):
         try:
             func()
         finally:
-            # クールダウン後に解除
             def release():
                 global busy
                 time.sleep(COOLDOWN_SEC)
@@ -78,7 +76,8 @@ def main():
         print("SYSTEM READY")
         relay.wait()
     finally:
-        duty._send_duty(0)
+        print("SYSTEM STOP")
+        duty.emergency_stop()
         ser.close()
 
 

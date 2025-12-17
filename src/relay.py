@@ -1,11 +1,20 @@
-# relay.py
+# src/relay.py
 from gpiozero import DigitalInputDevice
 from signal import pause
 
+
 class RelayController:
     def __init__(self, pin_forward=17, pin_reverse=27):
-        self.forward = DigitalInputDevice(pin_forward, pull_up=False)
-        self.reverse = DigitalInputDevice(pin_reverse, pull_up=False)
+        self.forward = DigitalInputDevice(
+            pin_forward,
+            pull_up=False,
+            bounce_time=0.1
+        )
+        self.reverse = DigitalInputDevice(
+            pin_reverse,
+            pull_up=False,
+            bounce_time=0.1
+        )
 
         self.on_forward = None
         self.on_reverse = None
