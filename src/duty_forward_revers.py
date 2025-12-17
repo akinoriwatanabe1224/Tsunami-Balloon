@@ -47,15 +47,31 @@ class VESCDutyController:
     def hard_stop(self):
         """
         Duty再生成を防ぐ「完全停止」
+        
+        改善内容:
+        1. 即座にDuty=0を複数回送信（緊急停止）
+        2. 電流制御モードへの切り替えを複数回実施
+        3. Duty=0の維持送信回数を2倍に増加
+        4. 最後に電流制御モードを再確認
         """
-        # 1. Duty制御モードから抜ける
-        self.ser.write(encode(SetCurrent(0)))
-        time.sleep(0.2)
-
-        # 2. Duty=0 を一定時間維持送信
-        for _ in range(10):
+        # 1. まず即座にDuty=0を送信（緊急停止）
+        for _ in range(3):
+            self._send_duty(0)
+            time.sleep(0.01)
+        
+        # 2. Duty制御モードから抜けて電流制御モードへ（確実に切り替え）
+        for _ in range(3):
+            self.ser.write(encode(SetCurrent(0)))
+            time.sleep(0.1)
+        
+        # 3. Duty=0を長時間維持送信（VESCの内部状態を完全にクリア）
+        for _ in range(20):
             self._send_duty(0)
             time.sleep(0.05)
+        
+        # 4. 最後にもう一度電流制御モードに固定（念のため）
+        self.ser.write(encode(SetCurrent(0)))
+        time.sleep(0.1)
 
     # 非常停止用
     def emergency_stop(self):
