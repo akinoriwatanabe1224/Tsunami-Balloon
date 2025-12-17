@@ -2,7 +2,7 @@
 import serial
 import time
 import threading
-from src.duty import VESCDutyController
+from src.duty_forward_revers import VESCDutyController
 from src.relay import RelayController
 from src.reader import VESCReader
 
