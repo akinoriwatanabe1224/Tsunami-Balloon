@@ -16,6 +16,7 @@ class VESCDutyController:
         self.step_delay = step_delay
         self._stop_flag = threading.Event()
         self._thread = None
+        keep_time=3.0
         self.keep_time = keep_time
 
     def set_duty(self, duty: float):
