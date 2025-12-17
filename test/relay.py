@@ -1,25 +1,18 @@
-import RPi.GPIO as GPIO
-import time
+from gpiozero import DigitalInputDevice
+from signal import pause
 
 PIN = 17
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+dev = DigitalInputDevice(PIN, pull_up=False)
 
-print("waiting for edge...")
+def on_active():
+    print("CONNECTED")
 
-try:
-    while True:
-        channel = GPIO.wait_for_edge(PIN, GPIO.BOTH)
-        if channel is None:
-            continue
+def on_inactive():
+    print("DISCONNECTED")
 
-        if GPIO.input(PIN):
-            print("CONNECTED")
-        else:
-            print("DISCONNECTED")
+dev.when_activated = on_active
+dev.when_deactivated = on_inactive
 
-except KeyboardInterrupt:
-    pass
-finally:
-    GPIO.cleanup()
+print("waiting for edge (gpiozero)...")
+pause()
