@@ -1,4 +1,4 @@
-# vesc/reader.py
+# src/reader.py
 # 元の test_read.py をモジュール化（パース/CRC/パケット抽出はオリジナルのまま）
 import struct
 import time
@@ -185,13 +185,13 @@ class VESCReader:
 
     # ---- VESC通信処理 ----
     def send_get_values(self):
-        from vesc.reader import build_packet  # 同ファイルの関数
+        from src.reader import build_packet  # 同ファイルの関数
         pkt = build_packet(bytes([COMM_GET_VALUES]))
         self.ser.write(pkt)
         self.request_count += 1
 
     def _loop(self):
-        from vesc.reader import extract_packets, parse_getvalues
+        from src.reader import extract_packets, parse_getvalues
         self._init_csv()
         while not self._stop_flag.is_set():
             try:
