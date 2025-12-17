@@ -12,17 +12,15 @@ BAUDRATE = 115200
 
 MAX_DUTY = 10
 STEP_DELAY = 0.05
-RUN_TIME_SEC = 5        # モータ回転時間
-COOLDOWN_SEC = 4        # 再トリガ無視時間
+RUN_TIME_SEC = 5
+COOLDOWN_SEC = 4
 
-LOG_INTERVAL = 0.05     # readerの取得周期
-CSV_ENABLE = True
+LOG_INTERVAL = 0.05
 CSV_FILE = "log/0g.csv"
-CSV_FIELDS = ["time", "duty", "rpm"]
 # =================
 
-busy_lock = threading.Lock()
 busy = False
+busy_lock = threading.Lock()
 
 
 def with_lock(func):
@@ -45,53 +43,44 @@ def with_lock(func):
                 print("READY")
 
             threading.Thread(target=release, daemon=True).start()
+
     return wrapper
 
 
 def main():
     ser = serial.Serial(SERIAL_PORT, BAUDRATE, timeout=0.1)
 
-    # --- Reader（ログ・表示） ---
+    # ログ取得
     reader = VESCReader(
         ser,
         interval=LOG_INTERVAL,
-        csv_enable=CSV_ENABLE,
-        csv_filename=CSV_FILE,
-        csv_fields=CSV_FIELDS
+        csv_filename=CSV_FILE
     )
 
-    # --- Duty制御 ---
     duty = VESCDutyController(
         ser,
         max_duty=MAX_DUTY,
         step_delay=STEP_DELAY
     )
 
-    # --- GPIO ---
     relay = RelayController(pin_forward=17, pin_reverse=27)
 
     @with_lock
-    def forward_action():
+    def forward():
         print("FORWARD START")
-        duty.ramp_and_hold(
-            target_duty=+MAX_DUTY,
-            hold_time=RUN_TIME_SEC
-        )
+        duty.ramp_and_hold(+MAX_DUTY, RUN_TIME_SEC)
 
     @with_lock
-    def reverse_action():
+    def reverse():
         print("REVERSE START")
-        duty.ramp_and_hold(
-            target_duty=-MAX_DUTY,
-            hold_time=RUN_TIME_SEC
-        )
+        duty.ramp_and_hold(-MAX_DUTY, RUN_TIME_SEC)
 
-    relay.on_forward = forward_action
-    relay.on_reverse = reverse_action
+    relay.on_forward = forward
+    relay.on_reverse = reverse
 
     try:
         print("SYSTEM READY")
-        reader.start()        # ← ログ開始
+        reader.start()
         relay.wait()
     finally:
         print("SYSTEM STOP")
