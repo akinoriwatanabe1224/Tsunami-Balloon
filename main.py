@@ -4,7 +4,7 @@ import time
 import threading
 from src.duty_forward_revers import VESCDutyController
 from src.relay import RelayController
-from vesc.reader import VESCReader
+from src.reader import VESCReader
 
 # ===== 設定 =====
 SERIAL_PORT = "/dev/serial0"
