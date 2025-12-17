@@ -1,4 +1,4 @@
-# src/duty_forward_revers.py
+# src/duty.py
 import time
 import threading
 from pyvesc.messages.setters import SetDutyCycle, SetCurrent
@@ -15,32 +15,17 @@ class VESCDutyController:
     def _send_duty(self, duty):
         duty = max(-100.0, min(100.0, duty))
         duty_int = int(duty * 1000)
-        msg = SetDutyCycle(duty_int)
-        self.ser.write(encode(msg))
+        self.ser.write(encode(SetDutyCycle(duty_int)))
 
-    def _brake_and_stop(self):
-        """
-        停止時のガクン防止用
-        """
-        # トルクを確実に0へ
-        self.ser.write(encode(SetCurrent(0)))
-        time.sleep(0.2)
-
-        # Duty=0 を複数回送信して安定させる
-        for _ in range(5):
-            self._send_duty(0)
-            time.sleep(0.05)
-
+    # ----------------------------
+    # 正転・逆転ランプ制御
+    # ----------------------------
     def ramp_and_hold(self, target_duty, hold_time):
-        """
-        target_duty : +max_duty or -max_duty
-        hold_time   : 秒
-        """
         with self._lock:
             step = 1 if target_duty > 0 else -1
             d = 0
 
-            # 0 → target_duty
+            # 0 → target
             while abs(d) < abs(target_duty):
                 d += step
                 self._send_duty(d)
@@ -50,18 +35,29 @@ class VESCDutyController:
             self._send_duty(target_duty)
             time.sleep(hold_time)
 
-            # target_duty → 0（徐々に）
+            # target → 0
             while abs(d) > 0:
                 d -= step
                 self._send_duty(d)
                 time.sleep(self.step_delay)
 
-            # 完全停止処理
-            self._brake_and_stop()
+            # 完全停止
+            self.hard_stop()
 
+    def hard_stop(self):
+        """
+        Duty再生成を防ぐ「完全停止」
+        """
+        # 1. Duty制御モードから抜ける
+        self.ser.write(encode(SetCurrent(0)))
+        time.sleep(0.2)
+
+        # 2. Duty=0 を一定時間維持送信
+        for _ in range(10):
+            self._send_duty(0)
+            time.sleep(0.05)
+
+    # 非常停止用
     def emergency_stop(self):
-        """
-        非常停止用（即時）
-        """
         with self._lock:
-            self._brake_and_stop()
+            self.hard_stop()
