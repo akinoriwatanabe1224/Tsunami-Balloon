@@ -207,7 +207,7 @@ class VESCReader:
                             self.success_count += 1
                             self._write_csv(parsed)
                             # 表示は元のフォーマットに合わせる
-                            # print(f"\n--- データ #{self.success_count} ---")
+                            print(f"\n--- データ #{self.success_count} ---")
                             # print(f"FET温度:    {parsed['temp_fet']:.1f}°C")
                             # print(f"モーター温度: {parsed['temp_motor']:.1f}°C")
                             # print(f"モーター電流: {parsed['current_motor']:.2f}A")
@@ -216,7 +216,7 @@ class VESCReader:
                             # print(f"Duty比:     {parsed['duty']:.3f}")
                             # print(f"RPM:        {parsed['rpm']}")
                             # print(f"電力量:     {parsed['watt_hours']:.3f}Wh")
-                            # print(f"[#{self.success_count}] RPM={parsed['rpm']} Duty={parsed['duty']:.3f}")
+                            print(f"[#{self.success_count}] RPM={parsed['rpm']} Duty={parsed['duty']:.3f}")
                 time.sleep(max(0, self.interval - 0.05))
             except Exception as e:
                 print(f"[ERROR in reader loop] {e}")
