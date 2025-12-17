@@ -32,19 +32,19 @@ def with_lock(func):
                 return
             busy = True
 
-        try:
-            func()
-        finally:
-            def release():
-                global busy
+        def task():
+            try:
+                func()
+            finally:
                 time.sleep(COOLDOWN_SEC)
                 with busy_lock:
                     busy = False
                 print("READY")
 
-            threading.Thread(target=release, daemon=True).start()
+        threading.Thread(target=task, daemon=True).start()
 
     return wrapper
+
 
 
 def main():
