@@ -58,8 +58,28 @@ def main():
         print("FORWARD START")
         print("="*50)
         
+        # ★重要：モーター制御中はReaderを完全停止
+        reader.stop()
+        time.sleep(0.5)
+        
+        # バッファクリア
+        ser.reset_input_buffer()
+        ser.reset_output_buffer()
+        time.sleep(0.2)
+        
         # モーター制御
         duty.ramp_and_hold(+MAX_DUTY, RUN_TIME_SEC)
+        
+        # 安定化待機
+        time.sleep(2.0)
+        
+        # バッファ再クリア
+        ser.reset_input_buffer()
+        ser.reset_output_buffer()
+        time.sleep(0.5)
+        
+        # Reader再開
+        reader.start()
         
         print("="*50)
         print("FORWARD COMPLETED")
@@ -71,8 +91,28 @@ def main():
         print("REVERSE START")
         print("="*50)
         
+        # ★重要：モーター制御中はReaderを完全停止
+        reader.stop()
+        time.sleep(0.5)
+        
+        # バッファクリア
+        ser.reset_input_buffer()
+        ser.reset_output_buffer()
+        time.sleep(0.2)
+        
         # モーター制御
         duty.ramp_and_hold(-MAX_DUTY, RUN_TIME_SEC)
+        
+        # 安定化待機
+        time.sleep(2.0)
+        
+        # バッファ再クリア
+        ser.reset_input_buffer()
+        ser.reset_output_buffer()
+        time.sleep(0.5)
+        
+        # Reader再開
+        reader.start()
         
         print("="*50)
         print("REVERSE COMPLETED")
