@@ -17,6 +17,10 @@ COOLDOWN_SEC = 4
 
 LOG_INTERVAL = 0.05
 CSV_FILE = "log/0g.csv"
+
+# GPIO設定
+GPIO_DEBOUNCE_TIME = 0.2  # チャタリング防止時間（秒）
+GPIO_LOCKOUT_TIME = 15.0  # 1回実行後、次の入力を受け付けない時間（秒）
 # =================
 
 busy = False
@@ -28,7 +32,7 @@ def with_lock(func):
         global busy
         with busy_lock:
             if busy:
-                print("IGNORED (cooldown)")
+                print("IGNORED (already busy)")
                 return
             busy = True
 
@@ -63,7 +67,13 @@ def main():
         step_delay=STEP_DELAY
     )
 
-    relay = RelayController(pin_forward=17, pin_reverse=27)
+    # RelayControllerにロックアウト時間を設定
+    relay = RelayController(
+        pin_forward=17, 
+        pin_reverse=27,
+        debounce_time=GPIO_DEBOUNCE_TIME,
+        lockout_time=GPIO_LOCKOUT_TIME
+    )
 
     @with_lock
     def forward():
@@ -80,6 +90,7 @@ def main():
 
     try:
         print("SYSTEM READY")
+        print(f"GPIO lockout time: {GPIO_LOCKOUT_TIME}s")
         reader.start()
         relay.wait()
     finally:
