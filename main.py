@@ -24,7 +24,7 @@ CSV_FILE = "log/motor.csv"
 CSV_FIELDS = ["time", "duty", "rpm"]
 
 # ログ取得時間（モーター動作時間 + マージン）
-LOG_DURATION = RUN_TIME_SEC  # 5秒 + 3秒マージン = 8秒
+LOG_DURATION = RUN_TIME_SEC+3  # 5秒 + 3秒マージン = 8秒
 # =================
 
 
