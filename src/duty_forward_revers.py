@@ -53,8 +53,20 @@ class VESCDutyController:
             # 保持完了後も念のため送信
             self._send_duty(target_duty)
             
-            # ===== ランプダウンを削除！即座に停止 =====
-            print("Stopping immediately (no ramp down)...")
+            # ===== ランプダウン: target_duty → 0 =====
+            print(f"Ramping down to 0%...")
+            while abs(d) > 0:
+                d -= step
+                self._send_duty(d)
+                time.sleep(self.step_delay)
+            
+            # ===== ランプダウン完了後、即座に完全停止 =====
+            print("Stopping immediately...")
+            for _ in range(10):
+                self._send_duty(0)
+                time.sleep(0.01)
+            
+            # 完全停止処理
             self._complete_stop()
             print("Motor stopped")
     
