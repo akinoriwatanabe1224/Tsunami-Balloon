@@ -12,7 +12,7 @@ BAUDRATE = 115200
 
 MAX_DUTY = 10
 STEP_DELAY = 0.05
-RUN_TIME_SEC = 5
+RUN_TIME_SEC = 5*5
 
 # GPIO設定
 GPIO_DEBOUNCE = 0.5
@@ -24,7 +24,7 @@ CSV_FILE = "log/motor.csv"
 CSV_FIELDS = ["time", "duty", "rpm"]
 
 # ログ取得時間（モーター動作時間 + マージン）
-LOG_DURATION = RUN_TIME_SEC + 3  # 5秒 + 3秒マージン = 8秒
+LOG_DURATION = RUN_TIME_SEC  # 5秒 + 3秒マージン = 8秒
 # =================
 
 
@@ -65,42 +65,29 @@ def main():
         ser.reset_output_buffer()
         time.sleep(0.2)
         
-        # ★変更：ログ取得は動作前後のみ
-        print("Logging BEFORE motor action...")
-        reader.start_temporary(2)  # 動作前の状態を2秒間記録
-        time.sleep(2.5)
-        reader.stop()
+        # ★ログ取得開始（自動停止タイマー付き）
+        reader.start_temporary(LOG_DURATION)
+        time.sleep(0.5)  # Reader起動待機
         
-        # バッファクリア
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
-        time.sleep(0.5)
-        
-        # モーター制御（Readerは完全停止）
-        print("\n[INFO] Starting motor control (Reader STOPPED)")
+        # モーター制御
         duty.ramp_and_hold(+MAX_DUTY, RUN_TIME_SEC)
-        print("[INFO] Motor control completed")
+        
+        # Readerが自動停止するまで待機（マージン含む）
+        print(f"Waiting for reader to auto-stop...")
+        time.sleep(LOG_DURATION - RUN_TIME_SEC + 1)
+        
+        # 念のため停止確認
+        reader.stop()
         
         # 安定化待機
-        print("\nWaiting for VESC stabilization...")
+        print("Waiting for VESC stabilization...")
         time.sleep(3.0)
-        
-        # バッファクリア
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
-        time.sleep(0.5)
-        
-        # 動作後の状態を記録
-        print("\nLogging AFTER motor action...")
-        reader.start_temporary(2)  # 動作後の状態を2秒間記録
-        time.sleep(2.5)
-        reader.stop()
         
         # 最終バッファクリア
         ser.reset_input_buffer()
         ser.reset_output_buffer()
         
-        print("\n" + "="*50)
+        print("="*50)
         print("FORWARD COMPLETED")
         print("="*50 + "\n")
     
@@ -115,42 +102,29 @@ def main():
         ser.reset_output_buffer()
         time.sleep(0.2)
         
-        # ★変更：ログ取得は動作前後のみ
-        print("Logging BEFORE motor action...")
-        reader.start_temporary(2)  # 動作前の状態を2秒間記録
-        time.sleep(2.5)
-        reader.stop()
+        # ★ログ取得開始（自動停止タイマー付き）
+        reader.start_temporary(LOG_DURATION)
+        time.sleep(0.5)  # Reader起動待機
         
-        # バッファクリア
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
-        time.sleep(0.5)
-        
-        # モーター制御（Readerは完全停止）
-        print("\n[INFO] Starting motor control (Reader STOPPED)")
+        # モーター制御
         duty.ramp_and_hold(-MAX_DUTY, RUN_TIME_SEC)
-        print("[INFO] Motor control completed")
+        
+        # Readerが自動停止するまで待機（マージン含む）
+        print(f"Waiting for reader to auto-stop...")
+        time.sleep(LOG_DURATION - RUN_TIME_SEC + 1)
+        
+        # 念のため停止確認
+        reader.stop()
         
         # 安定化待機
-        print("\nWaiting for VESC stabilization...")
+        print("Waiting for VESC stabilization...")
         time.sleep(3.0)
-        
-        # バッファクリア
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
-        time.sleep(0.5)
-        
-        # 動作後の状態を記録
-        print("\nLogging AFTER motor action...")
-        reader.start_temporary(2)  # 動作後の状態を2秒間記録
-        time.sleep(2.5)
-        reader.stop()
         
         # 最終バッファクリア
         ser.reset_input_buffer()
         ser.reset_output_buffer()
         
-        print("\n" + "="*50)
+        print("="*50)
         print("REVERSE COMPLETED")
         print("="*50 + "\n")
     
