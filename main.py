@@ -1,4 +1,4 @@
-# main.py
+# main.py (最終版 - 全対策統合)
 import serial
 import time
 import threading
@@ -13,14 +13,14 @@ BAUDRATE = 115200
 MAX_DUTY = 10
 STEP_DELAY = 0.05
 RUN_TIME_SEC = 5
-COOLDOWN_SEC = 4
+COOLDOWN_SEC = 10  # 4秒 → 10秒に延長（より安全に）
 
 LOG_INTERVAL = 0.05
 CSV_FILE = "log/0g.csv"
 
 # GPIO設定
-GPIO_DEBOUNCE_TIME = 0.2  # チャタリング防止時間（秒）
-GPIO_LOCKOUT_TIME = 15.0  # 1回実行後、次の入力を受け付けない時間（秒）
+GPIO_DEBOUNCE_TIME = 0.3  # 0.2秒 → 0.3秒に延長
+GPIO_LOCKOUT_TIME = 20.0  # 15秒 → 20秒に延長（より確実に）
 # =================
 
 busy = False
@@ -53,6 +53,11 @@ def with_lock(func):
 
 def main():
     ser = serial.Serial(SERIAL_PORT, BAUDRATE, timeout=0.1)
+    
+    # シリアルバッファを初期化時にクリア
+    ser.reset_input_buffer()
+    ser.reset_output_buffer()
+    print("Serial buffers cleared")
 
     # ログ取得
     reader = VESCReader(
@@ -77,20 +82,62 @@ def main():
 
     @with_lock
     def forward():
+        print("=" * 50)
         print("FORWARD START")
+        print("=" * 50)
+        
+        # モーター動作中はreaderを一時停止（通信の競合を防ぐ）
+        reader.pause()
+        time.sleep(0.2)
+        
+        # モーター制御実行
         duty.ramp_and_hold(+MAX_DUTY, RUN_TIME_SEC)
+        
+        # 追加の安全待機時間
+        time.sleep(2.0)
+        print("Additional safety wait completed")
+        
+        # readerを再開
+        reader.resume()
+        
+        print("=" * 50)
+        print("FORWARD COMPLETED")
+        print("=" * 50)
 
     @with_lock
     def reverse():
+        print("=" * 50)
         print("REVERSE START")
+        print("=" * 50)
+        
+        # モーター動作中はreaderを一時停止
+        reader.pause()
+        time.sleep(0.2)
+        
+        # モーター制御実行
         duty.ramp_and_hold(-MAX_DUTY, RUN_TIME_SEC)
+        
+        # 追加の安全待機時間
+        time.sleep(2.0)
+        print("Additional safety wait completed")
+        
+        # readerを再開
+        reader.resume()
+        
+        print("=" * 50)
+        print("REVERSE COMPLETED")
+        print("=" * 50)
 
     relay.on_forward = forward
     relay.on_reverse = reverse
 
     try:
+        print("=" * 50)
         print("SYSTEM READY")
+        print(f"GPIO debounce time: {GPIO_DEBOUNCE_TIME}s")
         print(f"GPIO lockout time: {GPIO_LOCKOUT_TIME}s")
+        print(f"Cooldown time: {COOLDOWN_SEC}s")
+        print("=" * 50)
         reader.start()
         relay.wait()
     finally:

@@ -1,7 +1,7 @@
-# src/duty.py
+# src/duty.py (通信バッファクリア版)
 import time
 import threading
-from pyvesc.messages.setters import SetDutyCycle, SetCurrent
+from pyvesc.messages.setters import SetDutyCycle, SetCurrent, SetRPM
 from pyvesc.interface import encode
 
 
@@ -17,11 +17,20 @@ class VESCDutyController:
         duty_int = int(duty * 1000)
         self.ser.write(encode(SetDutyCycle(duty_int)))
 
+    def _clear_serial_buffer(self):
+        """シリアル通信バッファをクリア"""
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
+        time.sleep(0.05)
+
     # ----------------------------
     # 正転・逆転ランプ制御
     # ----------------------------
     def ramp_and_hold(self, target_duty, hold_time):
         with self._lock:
+            # 開始前にバッファクリア
+            self._clear_serial_buffer()
+            
             step = 1 if target_duty > 0 else -1
             d = 0
 
@@ -46,32 +55,52 @@ class VESCDutyController:
 
     def hard_stop(self):
         """
-        Duty再生成を防ぐ「完全停止」
+        VESCの完全停止（通信バッファクリア版）
         
         改善内容:
-        1. 即座にDuty=0を複数回送信（緊急停止）
-        2. 電流制御モードへの切り替えを複数回実施
-        3. Duty=0の維持送信回数を2倍に増加
-        4. 最後に電流制御モードを再確認
+        1. 通信バッファをクリア（送信・受信両方）
+        2. 複数の制御モードで停止コマンドを送信
+        3. RPM制御モードも使用して確実に停止
+        4. 長時間のDuty=0維持
         """
-        # 1. まず即座にDuty=0を送信（緊急停止）
-        for _ in range(3):
+        print("[HARD_STOP] Starting complete stop sequence...")
+        
+        # ステップ1: 通信バッファクリア
+        self._clear_serial_buffer()
+        
+        # ステップ2: 即座にDuty=0を送信
+        for i in range(5):
             self._send_duty(0)
             time.sleep(0.01)
+        print("[HARD_STOP] Duty=0 sent (5 times)")
         
-        # 2. Duty制御モードから抜けて電流制御モードへ（確実に切り替え）
-        for _ in range(3):
+        # ステップ3: 電流制御モードで停止
+        for i in range(5):
             self.ser.write(encode(SetCurrent(0)))
-            time.sleep(0.1)
+            time.sleep(0.05)
+        print("[HARD_STOP] SetCurrent(0) sent (5 times)")
         
-        # 3. Duty=0を長時間維持送信（VESCの内部状態を完全にクリア）
-        for _ in range(20):
+        # ステップ4: RPM制御モードでも停止（二重の安全策）
+        for i in range(5):
+            self.ser.write(encode(SetRPM(0)))
+            time.sleep(0.05)
+        print("[HARD_STOP] SetRPM(0) sent (5 times)")
+        
+        # ステップ5: 再度Duty=0を長時間維持
+        for i in range(30):
             self._send_duty(0)
             time.sleep(0.05)
+        print("[HARD_STOP] Duty=0 maintained for 1.5s")
         
-        # 4. 最後にもう一度電流制御モードに固定（念のため）
-        self.ser.write(encode(SetCurrent(0)))
-        time.sleep(0.1)
+        # ステップ6: 最終確認（電流制御モードに固定）
+        for i in range(3):
+            self.ser.write(encode(SetCurrent(0)))
+            time.sleep(0.1)
+        print("[HARD_STOP] Final SetCurrent(0) sent")
+        
+        # ステップ7: バッファを再度クリア
+        self._clear_serial_buffer()
+        print("[HARD_STOP] Stop sequence completed")
 
     # 非常停止用
     def emergency_stop(self):

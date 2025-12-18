@@ -1,4 +1,4 @@
-# src/reader.py
+# src/reader.py (モーター動作中は読み取り停止版)
 # 元の test_read.py をモジュール化（パース/CRC/パケット抽出はオリジナルのまま）
 import struct
 import time
@@ -74,7 +74,6 @@ def parse_getvalues(payload):
         if payload[0] == COMM_GET_VALUES:
             payload = payload[1:]
         if len(payload) < 46:
-            # オリジナルと同様に短い場合警告
             print(f"[WARN] ペイロード長が短い: {len(payload)} bytes")
             print(f"[HEX] {payload.hex()}")
             return None
@@ -129,6 +128,7 @@ def parse_getvalues(payload):
         print(f"[ERROR] パース失敗: {e}")
         print(f"[HEX] {payload.hex()}")
         return None
+
 class VESCReader:
     def __init__(self, ser, interval=0.5,
                  csv_enable=False,
@@ -145,6 +145,7 @@ class VESCReader:
         self.interval = interval
         self._buffer = b''
         self._stop_flag = threading.Event()
+        self._pause_flag = threading.Event()  # 一時停止フラグ
         self._thread = None
         self.request_count = 0
         self.success_count = 0
@@ -156,6 +157,17 @@ class VESCReader:
         self._csv_file = None
         self._csv_writer = None
         self._start_time = None
+
+    # ---- 一時停止機能 ----
+    def pause(self):
+        """読み取りを一時停止（モーター動作中に使用）"""
+        self._pause_flag.set()
+        print("[READER] Paused")
+
+    def resume(self):
+        """読み取りを再開"""
+        self._pause_flag.clear()
+        print("[READER] Resumed")
 
     # ---- CSV初期化 ----
     def _init_csv(self):
@@ -181,20 +193,23 @@ class VESCReader:
             elif field in parsed:
                 row[field] = parsed[field]
         self._csv_writer.writerow(row)
-        self._csv_file.flush()  # 即時書き込み
+        self._csv_file.flush()
 
     # ---- VESC通信処理 ----
     def send_get_values(self):
-        from src.reader import build_packet  # 同ファイルの関数
         pkt = build_packet(bytes([COMM_GET_VALUES]))
         self.ser.write(pkt)
         self.request_count += 1
 
     def _loop(self):
-        from src.reader import extract_packets, parse_getvalues
         self._init_csv()
         while not self._stop_flag.is_set():
             try:
+                # 一時停止中はスキップ
+                if self._pause_flag.is_set():
+                    time.sleep(0.1)
+                    continue
+                
                 self.send_get_values()
                 time.sleep(0.05)
                 data = self.ser.read(self.ser.in_waiting or 256)
@@ -206,17 +221,16 @@ class VESCReader:
                         if parsed:
                             self.success_count += 1
                             self._write_csv(parsed)
-                            # 表示は元のフォーマットに合わせる
+                            # 詳細なログ表示
                             print(f"\n--- データ #{self.success_count} ---")
                             # print(f"FET温度:    {parsed['temp_fet']:.1f}°C")
                             # print(f"モーター温度: {parsed['temp_motor']:.1f}°C")
                             # print(f"モーター電流: {parsed['current_motor']:.2f}A")
                             # print(f"入力電流:   {parsed['current_in']:.2f}A")
                             # print(f"入力電圧:   {parsed['v_in']:.1f}V")
-                            # print(f"Duty比:     {parsed['duty']:.3f}")
-                            # print(f"RPM:        {parsed['rpm']}")
+                            print(f"Duty比:     {parsed['duty']:.3f}")
+                            print(f"RPM:        {parsed['rpm']}")
                             # print(f"電力量:     {parsed['watt_hours']:.3f}Wh")
-                            print(f"[#{self.success_count}] RPM={parsed['rpm']} Duty={parsed['duty']:.3f}")
                 time.sleep(max(0, self.interval - 0.05))
             except Exception as e:
                 print(f"[ERROR in reader loop] {e}")
@@ -229,6 +243,7 @@ class VESCReader:
     def start(self):
         if self._thread is None:
             self._stop_flag.clear()
+            self._pause_flag.clear()
             self._thread = threading.Thread(target=self._loop, daemon=True)
             self._thread.start()
 
