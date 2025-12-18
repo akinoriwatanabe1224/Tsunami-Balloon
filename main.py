@@ -1,9 +1,10 @@
-# main.py (Reader無効化版 - 問題切り分け用)
+# main.py (最終版 - Reader再開タイミング改善)
 import serial
 import time
 import threading
 from src.duty_forward_revers import VESCDutyController
 from src.relay import RelayController
+from src.reader import VESCReader
 
 # ===== 設定 =====
 SERIAL_PORT = "/dev/serial0"
@@ -12,14 +13,17 @@ BAUDRATE = 115200
 MAX_DUTY = 10
 STEP_DELAY = 0.05
 RUN_TIME_SEC = 5
-COOLDOWN_SEC = 10
+COOLDOWN_SEC = 10  # 4秒 → 10秒に延長（より安全に）
+
+LOG_INTERVAL = 0.05
+CSV_FILE = "log/0g.csv"
 
 # GPIO設定
-GPIO_DEBOUNCE_TIME = 0.3
-GPIO_LOCKOUT_TIME = 20.0
+GPIO_DEBOUNCE_TIME = 0.3  # 0.2秒 → 0.3秒に延長
+GPIO_LOCKOUT_TIME = 20.0  # 15秒 → 20秒に延長（より確実に）
 
 # VESC安定化待機時間
-VESC_STABILIZATION_TIME = 10.0  # 長めに設定
+VESC_STABILIZATION_TIME = 5.0  # Reader再開前にVESCを完全安定化させる時間
 # =================
 
 busy = False
@@ -58,6 +62,13 @@ def main():
     ser.reset_output_buffer()
     print("Serial buffers cleared")
 
+    # ログ取得
+    reader = VESCReader(
+        ser,
+        interval=LOG_INTERVAL,
+        csv_filename=CSV_FILE
+    )
+
     duty = VESCDutyController(
         ser,
         max_duty=MAX_DUTY,
@@ -78,17 +89,28 @@ def main():
         print("FORWARD START")
         print("=" * 50)
         
+        # モーター動作中はreaderを一時停止（通信の競合を防ぐ）
+        reader.pause()
+        time.sleep(0.5)  # Reader停止の確実化
+        
         # モーター制御実行
         duty.ramp_and_hold(+MAX_DUTY, RUN_TIME_SEC)
         
-        # VESCの完全安定化を待つ
+        # VESCの完全安定化を待つ（重要！）
         print(f"Waiting {VESC_STABILIZATION_TIME}s for VESC to stabilize...")
         time.sleep(VESC_STABILIZATION_TIME)
         
-        # シリアルバッファをクリア
+        # シリアルバッファを再度クリア（Reader再開前）
         ser.reset_input_buffer()
         ser.reset_output_buffer()
-        print("Serial buffers cleared")
+        print("Serial buffers cleared before resuming reader")
+        
+        # バッファクリア後の短い待機
+        time.sleep(0.5)
+        
+        # readerを再開
+        reader.resume()
+        print("Reader resumed")
         
         print("=" * 50)
         print("FORWARD COMPLETED")
@@ -100,17 +122,28 @@ def main():
         print("REVERSE START")
         print("=" * 50)
         
+        # モーター動作中はreaderを一時停止
+        reader.pause()
+        time.sleep(0.5)  # Reader停止の確実化
+        
         # モーター制御実行
         duty.ramp_and_hold(-MAX_DUTY, RUN_TIME_SEC)
         
-        # VESCの完全安定化を待つ
+        # VESCの完全安定化を待つ（重要！）
         print(f"Waiting {VESC_STABILIZATION_TIME}s for VESC to stabilize...")
         time.sleep(VESC_STABILIZATION_TIME)
         
-        # シリアルバッファをクリア
+        # シリアルバッファを再度クリア（Reader再開前）
         ser.reset_input_buffer()
         ser.reset_output_buffer()
-        print("Serial buffers cleared")
+        print("Serial buffers cleared before resuming reader")
+        
+        # バッファクリア後の短い待機
+        time.sleep(0.5)
+        
+        # readerを再開
+        reader.resume()
+        print("Reader resumed")
         
         print("=" * 50)
         print("REVERSE COMPLETED")
@@ -121,15 +154,17 @@ def main():
 
     try:
         print("=" * 50)
-        print("SYSTEM READY (Reader DISABLED)")
+        print("SYSTEM READY")
         print(f"GPIO debounce time: {GPIO_DEBOUNCE_TIME}s")
         print(f"GPIO lockout time: {GPIO_LOCKOUT_TIME}s")
         print(f"Cooldown time: {COOLDOWN_SEC}s")
         print(f"VESC stabilization time: {VESC_STABILIZATION_TIME}s")
         print("=" * 50)
+        reader.start()
         relay.wait()
     finally:
         print("SYSTEM STOP")
+        reader.stop()
         duty.emergency_stop()
         ser.close()
 
