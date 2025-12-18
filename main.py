@@ -1,4 +1,4 @@
-# main.py - シンプル版
+# main.py - 回転中のみログ取得版
 import serial
 import time
 import threading
@@ -15,36 +15,38 @@ STEP_DELAY = 0.05
 RUN_TIME_SEC = 5
 
 # GPIO設定
-GPIO_DEBOUNCE = 0.5  # チャタリング防止（秒）
-GPIO_COOLDOWN = 15.0  # 1回実行後の無視時間（秒）
+GPIO_DEBOUNCE = 0.5
+GPIO_COOLDOWN = 15.0
 
 # ログ設定
-LOG_INTERVAL = 0.1
+LOG_INTERVAL = 0.05
 CSV_FILE = "log/motor.csv"
 CSV_FIELDS = ["time", "duty", "rpm"]
+
+# ログ取得時間（モーター動作時間 + マージン）
+LOG_DURATION = RUN_TIME_SEC + 3  # 5秒 + 3秒マージン = 8秒
 # =================
 
 
 def main():
     ser = serial.Serial(SERIAL_PORT, BAUDRATE, timeout=0.1)
     
-    # VESC制御
+    # VESC制御（ランプダウンなし版を使用）
     duty = VESCDutyController(
         ser,
         max_duty=MAX_DUTY,
         step_delay=STEP_DELAY
     )
     
-    # ログ取得
+    # ログ取得（一時的使用専用）
     reader = VESCReader(
         ser,
         interval=LOG_INTERVAL,
-        csv_enable=True,
         csv_filename=CSV_FILE,
         csv_fields=CSV_FIELDS
     )
     
-    # GPIO制御（クールダウン機能付き）
+    # GPIO制御
     relay = RelayController(
         pin_forward=17,
         pin_reverse=27,
@@ -53,66 +55,74 @@ def main():
     )
     
     def forward_action():
-        """正転動作"""
+        """正転動作（ログ付き）"""
         print("\n" + "="*50)
         print("FORWARD START")
         print("="*50)
-        
-        # ★重要：モーター制御中はReaderを完全停止
-        reader.stop()
-        time.sleep(0.5)
         
         # バッファクリア
         ser.reset_input_buffer()
         ser.reset_output_buffer()
         time.sleep(0.2)
         
+        # ★ログ取得開始（自動停止タイマー付き）
+        reader.start_temporary(LOG_DURATION)
+        time.sleep(0.5)  # Reader起動待機
+        
         # モーター制御
         duty.ramp_and_hold(+MAX_DUTY, RUN_TIME_SEC)
         
-        # 安定化待機
-        time.sleep(2.0)
+        # Readerが自動停止するまで待機（マージン含む）
+        print(f"Waiting for reader to auto-stop...")
+        time.sleep(LOG_DURATION - RUN_TIME_SEC + 1)
         
-        # バッファ再クリア
+        # 念のため停止確認
+        reader.stop()
+        
+        # 安定化待機
+        print("Waiting for VESC stabilization...")
+        time.sleep(3.0)
+        
+        # 最終バッファクリア
         ser.reset_input_buffer()
         ser.reset_output_buffer()
-        time.sleep(0.5)
-        
-        # Reader再開
-        reader.start()
         
         print("="*50)
         print("FORWARD COMPLETED")
         print("="*50 + "\n")
     
     def reverse_action():
-        """逆転動作"""
+        """逆転動作（ログ付き）"""
         print("\n" + "="*50)
         print("REVERSE START")
         print("="*50)
-        
-        # ★重要：モーター制御中はReaderを完全停止
-        reader.stop()
-        time.sleep(0.5)
         
         # バッファクリア
         ser.reset_input_buffer()
         ser.reset_output_buffer()
         time.sleep(0.2)
         
+        # ★ログ取得開始（自動停止タイマー付き）
+        reader.start_temporary(LOG_DURATION)
+        time.sleep(0.5)  # Reader起動待機
+        
         # モーター制御
         duty.ramp_and_hold(-MAX_DUTY, RUN_TIME_SEC)
         
-        # 安定化待機
-        time.sleep(2.0)
+        # Readerが自動停止するまで待機（マージン含む）
+        print(f"Waiting for reader to auto-stop...")
+        time.sleep(LOG_DURATION - RUN_TIME_SEC + 1)
         
-        # バッファ再クリア
+        # 念のため停止確認
+        reader.stop()
+        
+        # 安定化待機
+        print("Waiting for VESC stabilization...")
+        time.sleep(3.0)
+        
+        # 最終バッファクリア
         ser.reset_input_buffer()
         ser.reset_output_buffer()
-        time.sleep(0.5)
-        
-        # Reader再開
-        reader.start()
         
         print("="*50)
         print("REVERSE COMPLETED")
@@ -127,9 +137,9 @@ def main():
         print("SYSTEM READY")
         print(f"GPIO debounce: {GPIO_DEBOUNCE}s")
         print(f"GPIO cooldown: {GPIO_COOLDOWN}s")
+        print(f"Log duration: {LOG_DURATION}s per action")
         print("="*50 + "\n")
         
-        reader.start()
         relay.wait()
         
     except KeyboardInterrupt:
