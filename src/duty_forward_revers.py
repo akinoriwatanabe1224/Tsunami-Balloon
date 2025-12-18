@@ -44,8 +44,14 @@ class VESCDutyController:
             
             # ===== 保持 =====
             print(f"Holding at {target_duty}% for {hold_time}s...")
+            # 保持中もDutyを定期的に送信し続ける
+            hold_start = time.time()
+            while (time.time() - hold_start) < hold_time:
+                self._send_duty(target_duty)
+                time.sleep(0.05)  # 50msごとに送信
+            
+            # 保持完了後も念のため送信
             self._send_duty(target_duty)
-            time.sleep(hold_time)
             
             # ===== ランプダウンを削除！即座に停止 =====
             print("Stopping immediately (no ramp down)...")
