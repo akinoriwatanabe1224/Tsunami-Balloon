@@ -54,6 +54,11 @@ class VESCDutyController:
                 self._send_duty(d)
                 time.sleep(self.step_delay)
             
+            # ★重要：ランプダウン完了直後に即座に停止処理
+            # わずかな隙間も与えない
+            self._send_duty(0)
+            time.sleep(0.001)  # 最小限の待機
+            
             # ===== 完全停止 =====
             print("Stopping motor...")
             self._complete_stop()
@@ -67,33 +72,44 @@ class VESCDutyController:
         1. Duty=0を複数回送信
         2. 電流制御モード(0A)に切り替え
         3. 十分な待機時間を確保
+        4. バッファをクリア
         """
-        # ステップ1: Duty=0を確実に送信
-        for _ in range(10):
+        # ステップ1: Duty=0を大量に送信（VESCに「確実に0」を叩き込む）
+        for _ in range(20):  # 10→20に増加
             self._send_duty(0)
-            time.sleep(0.02)
+            time.sleep(0.01)
         
         # ステップ2: 電流制御モード(0A)に切り替え
-        for _ in range(5):
+        for _ in range(10):  # 5→10に増加
             self._send_current(0)
-            time.sleep(0.1)
+            time.sleep(0.05)
         
-        # ステップ3: 再度Duty=0を送信
-        for _ in range(10):
+        # ステップ3: バッファをクリア（古いコマンドを削除）
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
+        time.sleep(0.1)
+        
+        # ステップ4: 再度Duty=0を大量送信
+        for _ in range(20):  # 10→20に増加
             self._send_duty(0)
-            time.sleep(0.02)
+            time.sleep(0.01)
         
-        # ステップ4: バッファをクリア
+        # ステップ5: 電流制御モード(0A)で完全固定
+        for _ in range(10):  # 3→10に増加
+            self._send_current(0)
+            time.sleep(0.05)
+        
+        # ステップ6: 最終バッファクリア
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         
-        # ステップ5: 最終確認で電流制御モードに固定
-        for _ in range(3):
-            self._send_current(0)
-            time.sleep(0.1)
+        # ステップ7: VESCの内部状態が安定するまで長めに待機
+        time.sleep(1.0)  # 0.5→1.0秒に延長
         
-        # ステップ6: VESCの内部状態が安定するまで待機
-        time.sleep(0.5)
+        # ステップ8: 念のため最後にもう一度電流制御(0A)
+        for _ in range(5):
+            self._send_current(0)
+            time.sleep(0.05)
     
     def emergency_stop(self):
         """緊急停止"""
