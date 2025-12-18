@@ -1,8 +1,8 @@
 # main.py
 import serial
 import time
-from vesc.reader import VESCReader
-from vesc.duty import VESCDutyController
+from src.reader import VESCReader
+from src.duty import VESCDutyController
 
 def main():
     ser = serial.Serial("/dev/serial0", 115200, timeout=0.1)
