@@ -192,15 +192,16 @@ class VESCReader:
         
         while not self._stop_flag.is_set():
             try:
-                # COMM_GET_VALUES送信と応答読み取り（排他制御）
+                # COMM_GET_VALUES送信（排他制御を最小化）
                 pkt = build_packet(bytes([COMM_GET_VALUES]))
                 with self._serial_lock:
                     self.ser.write(pkt)
 
-                    # 短い待機
-                    time.sleep(0.02)
+                # ロック外で待機（Dutyコマンドが割り込めるように）
+                time.sleep(0.02)
 
-                    # 応答読み取り
+                # 応答読み取り（短時間のロック）
+                with self._serial_lock:
                     data = self.ser.read(self.ser.in_waiting or 256)
                 if data:
                     self._buffer += data
@@ -212,16 +213,14 @@ class VESCReader:
                             self.count += 1
                             self._write_csv(parsed)
                             
-                            # 詳細なログ表示
+                            # 詳細なログ表示（診断情報含む）
                             print(f"\n--- データ #{self.count} ---")
-                            # print(f"FET温度:    {parsed['temp_fet']:.1f}°C")
-                            # print(f"モーター温度: {parsed['temp_motor']:.1f}°C")
-                            # print(f"モーター電流: {parsed['current_motor']:.2f}A")
-                            # print(f"入力電流:   {parsed['current_in']:.2f}A")
-                            # print(f"入力電圧:   {parsed['v_in']:.1f}V")
                             print(f"Duty比:     {parsed['duty']:.3f}")
                             print(f"RPM:        {parsed['rpm']}")
-                            # print(f"電力量:     {parsed['watt_hours']:.3f}Wh")
+                            print(f"入力電圧:   {parsed['v_in']:.1f}V")
+                            print(f"入力電流:   {parsed['current_in']:.2f}A")
+                            print(f"モーター電流: {parsed['current_motor']:.2f}A")
+                            print(f"FET温度:    {parsed['temp_fet']:.1f}°C")
                 
                 # インターバル待機
                 time.sleep(max(0, self.interval - 0.02))

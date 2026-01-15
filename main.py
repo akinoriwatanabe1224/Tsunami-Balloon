@@ -22,9 +22,9 @@ GPIO_DEBOUNCE = 0.5
 GPIO_COOLDOWN = 15.0
 
 # ログ設定
-LOG_INTERVAL = 0.05
+LOG_INTERVAL = 0.1  # 100msに増加（Dutyコマンドとの競合を減らす）
 CSV_FILE = "log/motor.csv"
-CSV_FIELDS = ["time", "duty", "rpm"]
+CSV_FIELDS = ["time", "duty", "rpm", "v_in", "current_in", "current_motor", "temp_fet"]
 
 # ログ取得時間（モーター動作時間 + マージン）
 LOG_DURATION = RUN_TIME_SEC+3  # 5秒 + 3秒マージン = 8秒
