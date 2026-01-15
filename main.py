@@ -13,9 +13,9 @@ serial_lock = threading.Lock()
 SERIAL_PORT = "/dev/serial0"
 BAUDRATE = 115200
 
-MAX_DUTY = 10
+MAX_DUTY = 30
 STEP_DELAY = 0.05
-RUN_TIME_SEC = 5
+RUN_TIME_SEC = 40
 
 # GPIO設定
 GPIO_DEBOUNCE = 0.5
