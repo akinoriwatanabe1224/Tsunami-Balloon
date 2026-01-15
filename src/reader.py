@@ -127,32 +127,35 @@ def parse_getvalues(payload):
 class VESCReader:
     """
     VESCからデータを読み取ってCSVに保存するクラス（一時的使用専用）
-    
+
     使い方:
     1. モーター動作前に start_temporary(duration) で起動
     2. duration秒後に自動停止
     3. 停止後は完全に通信しない
     """
-    
-    def __init__(self, ser, interval=0.05, 
-                 csv_filename="vesc_data.csv", csv_fields=None):
+
+    def __init__(self, ser, interval=0.05,
+                 csv_filename="vesc_data.csv", csv_fields=None, serial_lock=None):
         self.ser = ser
         self.interval = interval
         self._buffer = b''
         self._stop_flag = threading.Event()
         self._thread = None
         self.count = 0
-        
+
         # CSV設定
         self.csv_filename = csv_filename
         self.csv_fields = csv_fields or ["time", "duty", "rpm"]
         self._csv_file = None
         self._csv_writer = None
         self._start_time = None
-        
+
         # 一時的使用のためのタイマー
         self._duration = None
         self._timer_thread = None
+
+        # シリアルポート排他制御用（DutyControllerと共有）
+        self._serial_lock = serial_lock if serial_lock else threading.Lock()
     
     def _init_csv(self):
         """CSV初期化"""
@@ -189,15 +192,16 @@ class VESCReader:
         
         while not self._stop_flag.is_set():
             try:
-                # COMM_GET_VALUES送信
+                # COMM_GET_VALUES送信と応答読み取り（排他制御）
                 pkt = build_packet(bytes([COMM_GET_VALUES]))
-                self.ser.write(pkt)
-                
-                # 短い待機
-                time.sleep(0.02)
-                
-                # 応答読み取り
-                data = self.ser.read(self.ser.in_waiting or 256)
+                with self._serial_lock:
+                    self.ser.write(pkt)
+
+                    # 短い待機
+                    time.sleep(0.02)
+
+                    # 応答読み取り
+                    data = self.ser.read(self.ser.in_waiting or 256)
                 if data:
                     self._buffer += data
                     packets, self._buffer = extract_packets(self._buffer)

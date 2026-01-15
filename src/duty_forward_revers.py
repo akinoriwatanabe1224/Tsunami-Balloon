@@ -6,22 +6,26 @@ from pyvesc.interface import encode
 
 
 class VESCDutyController:
-    def __init__(self, ser, max_duty=10, step_delay=0.05):
+    def __init__(self, ser, max_duty=10, step_delay=0.05, serial_lock=None):
         self.ser = ser
         self.max_duty = max_duty
         self.step_delay = step_delay
         self._lock = threading.Lock()
+        # シリアルポート排他制御用（Readerと共有）
+        self._serial_lock = serial_lock if serial_lock else threading.Lock()
     
     def _send_duty(self, duty):
         """Duty指令を送信"""
         duty = max(-100.0, min(100.0, duty))
         duty_int = int(duty * 1000)
-        self.ser.write(encode(SetDutyCycle(duty_int)))
+        with self._serial_lock:
+            self.ser.write(encode(SetDutyCycle(duty_int)))
     
     def _send_current(self, current):
         """電流指令を送信（単位：A）"""
         current_mA = int(current * 1000)
-        self.ser.write(encode(SetCurrent(current_mA)))
+        with self._serial_lock:
+            self.ser.write(encode(SetCurrent(current_mA)))
     
     def ramp_and_hold(self, target_duty, hold_time):
         """
@@ -84,8 +88,9 @@ class VESCDutyController:
         
         # ステップ2: バッファクリア
         print("[STOP] Clearing buffers...")
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
+        with self._serial_lock:
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
         time.sleep(0.1)
         
         # ステップ3: 電流制御モード(0A)に強制切替
@@ -95,8 +100,9 @@ class VESCDutyController:
             time.sleep(0.02)
         
         # ステップ4: バッファ再クリア
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
+        with self._serial_lock:
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
         time.sleep(0.1)
         
         # ステップ5: 再度Duty=0を連続送信
@@ -112,8 +118,9 @@ class VESCDutyController:
             time.sleep(0.02)
         
         # ステップ7: 最終バッファクリア
-        self.ser.reset_input_buffer()
-        self.ser.reset_output_buffer()
+        with self._serial_lock:
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
         
         # ステップ8: 長時間待機（VESCの完全安定化）
         print("[STOP] Waiting for VESC stabilization...")

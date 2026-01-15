@@ -6,6 +6,9 @@ from src.duty_forward_revers import VESCDutyController
 from src.relay import RelayController
 from src.reader import VESCReader
 
+# シリアルポート排他制御用ロック（DutyController/Reader共有）
+serial_lock = threading.Lock()
+
 # ===== 設定 =====
 SERIAL_PORT = "/dev/serial0"
 BAUDRATE = 115200
@@ -35,15 +38,17 @@ def main():
     duty = VESCDutyController(
         ser,
         max_duty=MAX_DUTY,
-        step_delay=STEP_DELAY
+        step_delay=STEP_DELAY,
+        serial_lock=serial_lock
     )
-    
+
     # ログ取得（一時的使用専用）
     reader = VESCReader(
         ser,
         interval=LOG_INTERVAL,
         csv_filename=CSV_FILE,
-        csv_fields=CSV_FIELDS
+        csv_fields=CSV_FIELDS,
+        serial_lock=serial_lock
     )
     
     # GPIO制御
@@ -59,10 +64,11 @@ def main():
         print("\n" + "="*50)
         print("FORWARD START")
         print("="*50)
-        
+
         # バッファクリア
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
+        with serial_lock:
+            ser.reset_input_buffer()
+            ser.reset_output_buffer()
         time.sleep(0.2)
         
         # ★ログ取得開始（自動停止タイマー付き）
@@ -82,11 +88,12 @@ def main():
         # 安定化待機
         print("Waiting for VESC stabilization...")
         time.sleep(3.0)
-        
+
         # 最終バッファクリア
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
-        
+        with serial_lock:
+            ser.reset_input_buffer()
+            ser.reset_output_buffer()
+
         print("="*50)
         print("FORWARD COMPLETED")
         print("="*50 + "\n")
@@ -96,10 +103,11 @@ def main():
         print("\n" + "="*50)
         print("REVERSE START")
         print("="*50)
-        
+
         # バッファクリア
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
+        with serial_lock:
+            ser.reset_input_buffer()
+            ser.reset_output_buffer()
         time.sleep(0.2)
         
         # ★ログ取得開始（自動停止タイマー付き）
@@ -119,11 +127,12 @@ def main():
         # 安定化待機
         print("Waiting for VESC stabilization...")
         time.sleep(3.0)
-        
+
         # 最終バッファクリア
-        ser.reset_input_buffer()
-        ser.reset_output_buffer()
-        
+        with serial_lock:
+            ser.reset_input_buffer()
+            ser.reset_output_buffer()
+
         print("="*50)
         print("REVERSE COMPLETED")
         print("="*50 + "\n")
