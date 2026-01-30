@@ -18,6 +18,8 @@ STEP_DELAY = 0.05
 RUN_TIME_SEC = 40
 
 # GPIO設定
+GPIO_PIN_FORWARD = 17
+GPIO_PIN_REVERSE = 27
 GPIO_DEBOUNCE = 0.5
 GPIO_COOLDOWN = 15.0
 
@@ -53,8 +55,8 @@ def main():
     
     # GPIO制御
     relay = RelayController(
-        pin_forward=17,
-        pin_reverse=27,
+        pin_forward=GPIO_PIN_FORWARD,
+        pin_reverse=GPIO_PIN_REVERSE,
         debounce_time=GPIO_DEBOUNCE,
         cooldown_time=GPIO_COOLDOWN
     )
