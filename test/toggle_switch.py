@@ -8,8 +8,9 @@ import RPi.GPIO as GPIO
 import time
 
 # グローバル変数: GPIOピン番号
-GPIO_MANUAL = 17  # manual側のGPIOピン
-GPIO_AUTO = 27    # auto側のGPIOピン
+GPIO_MANUAL = 5  # manual側のGPIOピン
+GPIO_AUTO = 6   # auto側のGPIOピン
+
 
 
 def setup_gpio():
