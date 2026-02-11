@@ -27,6 +27,11 @@ class VESCDutyController:
         with self._serial_lock:
             self.ser.write(encode(SetCurrent(current_mA)))
     
+    def set_duty(self, duty):
+        """Duty値を直接設定（manual制御用）"""
+        duty = max(-self.max_duty, min(self.max_duty, duty))
+        self._send_duty(duty)
+
     def ramp_and_hold(self, target_duty, hold_time):
         """
         ランプアップ → 保持 → 即座に完全停止（ランプダウンなし）

@@ -234,33 +234,57 @@ class VESCReader:
             self._csv_file.close()
             print(f"[CSV] File closed. Total samples: {self.count}")
     
-    def start_temporary(self, duration):
+    def start(self, csv_filename=None):
         """
-        一時的にログ取得を開始（duration秒後に自動停止）
-        
+        ログ取得開始（手動でstop()するまで継続）
+
         Args:
-            duration: ログ取得時間（秒）
+            csv_filename: CSVファイルパス（省略時はself.csv_filename）
         """
         if self._thread is not None:
             print("[Reader] Already running, stopping first...")
             self.stop()
             time.sleep(0.5)
-        
+
+        if csv_filename:
+            self.csv_filename = csv_filename
+
+        self._stop_flag.clear()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+        print(f"[Reader] Started (continuous)")
+
+    def start_temporary(self, duration, csv_filename=None):
+        """
+        一時的にログ取得を開始（duration秒後に自動停止）
+
+        Args:
+            duration: ログ取得時間（秒）
+            csv_filename: CSVファイルパス（省略時はself.csv_filename）
+        """
+        if self._thread is not None:
+            print("[Reader] Already running, stopping first...")
+            self.stop()
+            time.sleep(0.5)
+
+        if csv_filename:
+            self.csv_filename = csv_filename
+
         self._duration = duration
         self._stop_flag.clear()
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
-        
+
         # タイマースレッド開始
         def timer_func():
             time.sleep(duration)
             if not self._stop_flag.is_set():
                 print(f"[Reader] Auto-stopping after {duration}s")
                 self.stop()
-        
+
         self._timer_thread = threading.Thread(target=timer_func, daemon=True)
         self._timer_thread.start()
-        
+
         print(f"[Reader] Started (will auto-stop after {duration}s)")
     
     def stop(self):
