@@ -12,8 +12,8 @@ ADC_CHANNEL = 0  # CH0にVRyを接続
 ADC_MAX = 1023   # 10ビットADC
 
 # 感度設定
-DEADZONE = 0.1       # 不感帯（中央付近でこの範囲は0とする）
-SENSITIVITY = 2.0    # 感度曲線（1.0=リニア、2.0以上=中央付近が鈍感）
+DEADZONE = 0.05       # 不感帯（中央付近でこの範囲は0とする）
+SENSITIVITY = 1.0    # 感度曲線（1.0=リニア、2.0以上=中央付近が鈍感）
 CALIBRATION_SAMPLES = 20  # キャリブレーション時のサンプル数
 
 
@@ -89,7 +89,7 @@ def main():
         while True:
             raw = js.read_raw()
             y = js.read_y()
-            print(f"Raw: {raw:4d} | Y: {y:+.3f}")
+            print(f"Raw: {raw:4d} | Y: {y:+.1f}")
             time.sleep(0.1)
     except KeyboardInterrupt:
         print("\nExiting...")
