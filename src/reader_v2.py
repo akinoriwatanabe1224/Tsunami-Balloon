@@ -227,8 +227,20 @@ class VESCReader:
                 self._diag_read_count += 1
 
                 if data:
+                    # 最初の10回だけ生データをhex dumpで表示
+                    if self._diag_read_count <= 10:
+                        print(f"[RAW] read#{self._diag_read_count}: {len(data)}B: "
+                              f"{data[:40].hex(' ')}"
+                              f"{'...' if len(data) > 40 else ''}")
+
                     self._buffer += data
                     packets, self._buffer = extract_packets(self._buffer)
+
+                    # パケットが見つからない場合、バッファの状態を表示
+                    if not packets and self._diag_read_count <= 10:
+                        print(f"[RAW] buffer: {len(self._buffer)}B: "
+                              f"{self._buffer[:40].hex(' ')}"
+                              f"{'...' if len(self._buffer) > 40 else ''}")
 
                     for payload in packets:
                         self._diag_packet_count += 1
