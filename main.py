@@ -5,7 +5,7 @@ import os
 import threading
 from src.duty_forward_revers import VESCDutyController
 from src.relay import RelayController
-from src.reader import VESCReader
+from src.reader_v2 import VESCReader
 from src.toggle_switch import ToggleSwitchController
 from src.joystick import Joystick
 
